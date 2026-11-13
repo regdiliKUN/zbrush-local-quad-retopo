@@ -6,10 +6,10 @@ ZBrush 2022 / 2025 插件：只把**遮罩区域**重新布成四边面，遮罩
 
 ## Download · 下载
 
-Get the installer from [Releases](../../releases):
+- [LocalQuadRetopo_1.4.3_CN.zip](download/LocalQuadRetopo_1.4.3_CN.zip) — 中文版
+- [LocalQuadRetopo_1.4.3_EN.zip](download/LocalQuadRetopo_1.4.3_EN.zip) — English
 
-- `LocalQuadRetopo_1.4.3_CN.zip` — 中文版
-- `LocalQuadRetopo_1.4.3_EN.zip` — English
+Open the link, then click the download button (↓) at the top right of the file page. · 打开链接后，点文件页面右上角的下载按钮（↓）。
 
 Unzip the whole package and double-click `INSTALL.bat`. If no suitable Python is found, the installer downloads a private one (about 60 MB, first install only).
 
@@ -54,6 +54,7 @@ Works well with Sculptris Pro: sculpt freely, mask the triangulated area, press 
 ```
 plugin/cn/   Chinese edition (installer, panel, Python backend, docs)
 plugin/en/   English edition
+download/    ready-to-install zip packages
 ```
 
 `LocalQuadRetopo.txt` is the ZScript panel; `LocalQuadRetopo_2022.zsc` / `_2025.zsc` are the panels compiled by each ZBrush version. The `.py` files are the retopology backend (NumPy + SciPy).
