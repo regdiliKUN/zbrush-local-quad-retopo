@@ -1,0 +1,847 @@
+// LocalQuadRetopo for ZBrush 2022 and 2025 (the installer sets IConfig to the target version)
+// Version 1.4.3. Both layouts check the mask first; a mask covering the whole SubTool is refused. Two run buttons (regular / honeycomb) instead of a switch. ZRemesher runs only for the regular layout and never on a self-crossing patch. Two layouts: regular (ZRemesher block + transition band) or honeycomb. Recommend button restores the mask; target 0 = automatic. Stage trace in C:/LQR/lqr_stage.txt; target slider 0-5000 in steps of 10, default 500.
+// This ZScript stays ASCII. StrFromAsc supplies the Chinese UI strings.
+
+[IConfig, 2025]
+
+// -----------------------------------------------------------------------------
+// Global state (Top Level). Numeric vars by name, string vars by #name.
+// -----------------------------------------------------------------------------
+[VarDef, LQRVSTAT, 0]
+[VarDef, LQRTMP, 0]
+[VarDef, LQRN, 0]
+[VarDef, LQRI, 0]
+[VarDef, LQRHIT, 0]
+[VarDef, LQRBYTES, 0]
+[VarDef, LQRWAITLOOPS, 120]
+[VarDef, LQRKEEP, 0]
+[VarDef, LQRSUBCOUNT, 0]
+[VarDef, LQRBASEIDX, 0]
+[VarDef, LQRAREAFULL, 0]
+[VarDef, LQRAREAVIS, 0]
+[VarDef, LQRRATIO, 1]
+[VarDef, LQRMODE, 0]
+[VarDef, LQRTARGET, 0]
+[VarDef, LQRPHASE, 0]
+[VarDef, LQRSERIAL, 0]
+[VarDef, LQRPREFIX, ""]
+[VarDef, LQRORIG, -1]
+[VarDef, LQRWORK, -1]
+[VarDef, LQRTOOL, -1]
+[VarDef, LQRREADY, 0]
+[VarDef, LQRPIPE, ""]
+[VarDef, LQRSELECTION, ""]
+[VarDef, LQRRECOVERED, ""]
+[VarDef, LQRROUNDTRIP, ""]
+[VarDef, LQRSTATUS(256)]
+
+[VarDef, LQRDIR, ""]
+[VarDef, LQRBEFORE, ""]
+[VarDef, LQRAFTER, ""]
+[VarDef, LQRREPORT, ""]
+[VarDef, LQRLAUNCHER, "C:/LQR/LqrLaunch.exe"]
+[VarDef, LQRSETTINGS, ""]
+[VarDef, LQRSTAGE, 0]
+[VarDef, LQRSTAGEFILE, "C:/LQR/lqr_stage.txt"]
+[VarDef, LQRSTAGETXT, ""]
+[VarDef, LQRLINE, ""]
+[VarDef, LQRMSG, ""]
+[VarDef, LQRCMD, ""]
+// ---------------------------------------------------------------------------
+// Chinese UI strings, built at RUNTIME from UTF-8 byte values (StrFromAsc).
+// The ZScript compiler strips non-ASCII literals, so the .TXT must stay pure
+// ASCII; these vars carry the Chinese labels instead. VarDef defaults are
+// English so the UI stays CONSISTENT even if the top-level VarSet block
+// were ever skipped (creation and later IGet/ISet use the SAME var).
+// Mapping: see lqr_strings_map.txt next to this generator.
+// ---------------------------------------------------------------------------
+[VarDef, LQRCN2, ""]
+[VarDef, LQRCN3, ""]
+[VarDef, LQRCN4, ""]
+[VarDef, LQRCN15, ""]
+[VarDef, LQRCN16, ""]
+[VarDef, LQRCN20, ""]
+[VarDef, LQRCN22, ""]
+[VarDef, LQRCN23, ""]
+[VarDef, LQRCN24, ""]
+[VarDef, LQRCN25, "ZPlugin:Local Quad Retopo:Target K"]
+[VarDef, LQRCN45, ""]
+[VarDef, LQRCN51, ""]
+[VarDef, LQRCN71, "ZPlugin:Local Quad Retopo"]
+[VarDef, LQRCN88, ""]
+[VarDef, LQRCN100, "ZPlugin:Local Quad Retopo:RUN"]
+[VarDef, LQRCN110, "ZPlugin:Local Quad Retopo:RECOMMEND"]
+[VarDef, LQRCN120, "ZPlugin:Local Quad Retopo:REGULAR"]
+[VarDef, LQRCN121, ""]
+[VarDef, LQRGRID, 0]
+[VarDef, LQRWANT, 0]
+[VarDef, LQRCN122, ""]
+[VarDef, LQRRISK, 0]
+[VarDef, LQRQUIET, 0]
+[VarDef, LQRAUTO, 0]
+[VarDef, LQRJOBMODE, 0]
+[VarDef, LQRJOBT, 0]
+[VarDef, LQRCN111, ""]
+[VarDef, LQRCN112, ""]
+[VarDef, LQRDIGIT, 0]
+[VarDef, LQRRECN, 0]
+[VarDef, LQRCN101, ""]
+[VarDef, LQRCN104, "ZPlugin:Local Quad Retopo:Rollback"]
+[VarDef, LQRCN105, ""]
+
+// --- runtime construction (executed at plugin load, verified on 2025.0.1) ---
+[VarSet, LQRCN2, [StrMerge, [StrFromAsc, 232],[StrFromAsc, 175],[StrFromAsc, 183],[StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 136],[StrFromAsc, 233],[StrFromAsc, 128],[StrFromAsc, 137]]]
+[VarSet, LQRCN2, [StrMerge, #LQRCN2, [StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 169],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 170]]]
+[VarSet, LQRCN2, [StrMerge, #LQRCN2, [StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 175],[StrFromAsc, 231],[StrFromAsc, 188],[StrFromAsc, 150],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 145]]]
+[VarSet, LQRCN2, [StrMerge, #LQRCN2, [StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 229],[StrFromAsc, 164],[StrFromAsc, 154],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 185]]]
+[VarSet, LQRCN2, [StrMerge, #LQRCN2, [StrFromAsc, 229],[StrFromAsc, 189],[StrFromAsc, 162],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 145],[StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 188]]]
+[VarSet, LQRCN2, [StrMerge, #LQRCN2, [StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN3, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 137],[StrFromAsc, 32]]]
+[VarSet, LQRCN4, [StrMerge, [StrFromAsc, 32],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 170],[StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 156]]]
+[VarSet, LQRCN4, [StrMerge, #LQRCN4, [StrFromAsc, 128],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 32],[StrFromAsc, 90],[StrFromAsc, 66],[StrFromAsc, 114],[StrFromAsc, 117]]]
+[VarSet, LQRCN4, [StrMerge, #LQRCN4, [StrFromAsc, 115],[StrFromAsc, 104],[StrFromAsc, 32],[StrFromAsc, 229],[StrFromAsc, 138],[StrFromAsc, 159],[StrFromAsc, 232],[StrFromAsc, 131],[StrFromAsc, 189]]]
+[VarSet, LQRCN4, [StrMerge, #LQRCN4, [StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 141],[StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 175],[StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168]]]
+[VarSet, LQRCN4, [StrMerge, #LQRCN4, [StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 178],[StrFromAsc, 229],[StrFromAsc, 129],[StrFromAsc, 156]]]
+[VarSet, LQRCN4, [StrMerge, #LQRCN4, [StrFromAsc, 230],[StrFromAsc, 173],[StrFromAsc, 162],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN15, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 161],[StrFromAsc, 233],[StrFromAsc, 170],[StrFromAsc, 140],[StrFromAsc, 229],[StrFromAsc, 164],[StrFromAsc, 177]]]
+[VarSet, LQRCN15, [StrMerge, #LQRCN15, [StrFromAsc, 232],[StrFromAsc, 180],[StrFromAsc, 165],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 230],[StrFromAsc, 138],[StrFromAsc, 165]]]
+[VarSet, LQRCN15, [StrMerge, #LQRCN15, [StrFromAsc, 229],[StrFromAsc, 145],[StrFromAsc, 138],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 154]]]
+[VarSet, LQRCN16, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 161],[StrFromAsc, 233],[StrFromAsc, 170],[StrFromAsc, 140],[StrFromAsc, 229],[StrFromAsc, 153],[StrFromAsc, 168]]]
+[VarSet, LQRCN16, [StrMerge, #LQRCN16, [StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 170],[StrFromAsc, 229],[StrFromAsc, 147],[StrFromAsc, 141],[StrFromAsc, 229],[StrFromAsc, 186],[StrFromAsc, 148]]]
+[VarSet, LQRCN16, [StrMerge, #LQRCN16, [StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 178],[StrFromAsc, 228],[StrFromAsc, 191],[StrFromAsc, 157]]]
+[VarSet, LQRCN16, [StrMerge, #LQRCN16, [StrFromAsc, 231],[StrFromAsc, 149],[StrFromAsc, 153],[StrFromAsc, 229],[StrFromAsc, 142],[StrFromAsc, 159],[StrFromAsc, 230],[StrFromAsc, 168],[StrFromAsc, 161]]]
+[VarSet, LQRCN16, [StrMerge, #LQRCN16, [StrFromAsc, 229],[StrFromAsc, 158],[StrFromAsc, 139],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN20, [StrMerge, [StrFromAsc, 229],[StrFromAsc, 189],[StrFromAsc, 147],[StrFromAsc, 229],[StrFromAsc, 137],[StrFromAsc, 141],[StrFromAsc, 32],[StrFromAsc, 84],[StrFromAsc, 111]]]
+[VarSet, LQRCN20, [StrMerge, #LQRCN20, [StrFromAsc, 111],[StrFromAsc, 108],[StrFromAsc, 32],[StrFromAsc, 230],[StrFromAsc, 178],[StrFromAsc, 161],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 137]]]
+[VarSet, LQRCN20, [StrMerge, #LQRCN20, [StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 175],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 135],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 158]]]
+[VarSet, LQRCN20, [StrMerge, #LQRCN20, [StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 138],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128]]]
+[VarSet, LQRCN20, [StrMerge, #LQRCN20, [StrFromAsc, 230],[StrFromAsc, 172],[StrFromAsc, 161],[StrFromAsc, 231],[StrFromAsc, 187],[StrFromAsc, 147],[StrFromAsc, 230],[StrFromAsc, 158],[StrFromAsc, 156]]]
+[VarSet, LQRCN20, [StrMerge, #LQRCN20, [StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN22, [StrMerge, [StrFromAsc, 232],[StrFromAsc, 175],[StrFromAsc, 183],[StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 136],[StrFromAsc, 230],[StrFromAsc, 140]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 137],[StrFromAsc, 32],[StrFromAsc, 84],[StrFromAsc, 32],[StrFromAsc, 232],[StrFromAsc, 191],[StrFromAsc, 155],[StrFromAsc, 229]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 133],[StrFromAsc, 165],[StrFromAsc, 231],[StrFromAsc, 188],[StrFromAsc, 150],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 145]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 230],[StrFromAsc, 168],[StrFromAsc, 161],[StrFromAsc, 229],[StrFromAsc, 188],[StrFromAsc, 143],[StrFromAsc, 229],[StrFromAsc, 185]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 182],[StrFromAsc, 233],[StrFromAsc, 128],[StrFromAsc, 137],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 173],[StrFromAsc, 32]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 80],[StrFromAsc, 111],[StrFromAsc, 108],[StrFromAsc, 121],[StrFromAsc, 77],[StrFromAsc, 101],[StrFromAsc, 115],[StrFromAsc, 104]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 51],[StrFromAsc, 68],[StrFromAsc, 32],[StrFromAsc, 229],[StrFromAsc, 173],[StrFromAsc, 144],[StrFromAsc, 229],[StrFromAsc, 183]]]
+[VarSet, LQRCN22, [StrMerge, #LQRCN22, [StrFromAsc, 165],[StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 183],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN23, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 82],[StrFromAsc, 101],[StrFromAsc, 109],[StrFromAsc, 101],[StrFromAsc, 115],[StrFromAsc, 104],[StrFromAsc, 101]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 114],[StrFromAsc, 32],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 141],[StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 175]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 140],[StrFromAsc, 232],[StrFromAsc, 175]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 183],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 135],[StrFromAsc, 230],[StrFromAsc, 141],[StrFromAsc, 162],[StrFromAsc, 229]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 136],[StrFromAsc, 176],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 128],[StrFromAsc, 228],[StrFromAsc, 189],[StrFromAsc, 142]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 231],[StrFromAsc, 187],[StrFromAsc, 134],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 134],[StrFromAsc, 231],[StrFromAsc, 186]]]
+[VarSet, LQRCN23, [StrMerge, #LQRCN23, [StrFromAsc, 167],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 171],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN24, [StrMerge, [StrFromAsc, 229],[StrFromAsc, 189],[StrFromAsc, 147],[StrFromAsc, 229],[StrFromAsc, 137],[StrFromAsc, 141],[StrFromAsc, 229],[StrFromAsc, 173]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 144],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 165],[StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 183],[StrFromAsc, 228]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 184],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 152],[StrFromAsc, 175],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 137]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 136],[StrFromAsc, 32],[StrFromAsc, 80],[StrFromAsc, 111],[StrFromAsc, 108],[StrFromAsc, 121]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 77],[StrFromAsc, 101],[StrFromAsc, 115],[StrFromAsc, 104],[StrFromAsc, 51],[StrFromAsc, 68],[StrFromAsc, 239],[StrFromAsc, 188]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 136],[StrFromAsc, 232],[StrFromAsc, 161],[StrFromAsc, 168],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 231]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 167],[StrFromAsc, 175],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 186],[StrFromAsc, 32],[StrFromAsc, 48],[StrFromAsc, 239]]]
+[VarSet, LQRCN24, [StrMerge, #LQRCN24, [StrFromAsc, 188],[StrFromAsc, 137],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN25, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58],[StrFromAsc, 229]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 58],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 174],[StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 135]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 136]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 48],[StrFromAsc, 32],[StrFromAsc, 232],[StrFromAsc, 135],[StrFromAsc, 170],[StrFromAsc, 229],[StrFromAsc, 138],[StrFromAsc, 168],[StrFromAsc, 239]]]
+[VarSet, LQRCN25, [StrMerge, #LQRCN25, [StrFromAsc, 188],[StrFromAsc, 137]]]
+[VarSet, LQRCN45, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 178],[StrFromAsc, 161],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 137],[StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 175]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 229],[StrFromAsc, 164],[StrFromAsc, 132],[StrFromAsc, 231],[StrFromAsc, 144],[StrFromAsc, 134],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 154]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 232],[StrFromAsc, 175],[StrFromAsc, 183],[StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 187],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 229],[StrFromAsc, 157],[StrFromAsc, 151],[StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 170],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 150]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 228],[StrFromAsc, 189],[StrFromAsc, 143],[StrFromAsc, 229],[StrFromAsc, 173],[StrFromAsc, 144],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 165]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 183],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 134],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174]]]
+[VarSet, LQRCN45, [StrMerge, #LQRCN45, [StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN51, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 170],[StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 190],[StrFromAsc, 229],[StrFromAsc, 136]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 176],[StrFromAsc, 32],[StrFromAsc, 70],[StrFromAsc, 114],[StrFromAsc, 101],[StrFromAsc, 101],[StrFromAsc, 122],[StrFromAsc, 101]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 66],[StrFromAsc, 111],[StrFromAsc, 114],[StrFromAsc, 100],[StrFromAsc, 101],[StrFromAsc, 114],[StrFromAsc, 239],[StrFromAsc, 188]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 140],[StrFromAsc, 230],[StrFromAsc, 151],[StrFromAsc, 160],[StrFromAsc, 230],[StrFromAsc, 179],[StrFromAsc, 149],[StrFromAsc, 228]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 191],[StrFromAsc, 157],[StrFromAsc, 232],[StrFromAsc, 175],[StrFromAsc, 129],[StrFromAsc, 229],[StrFromAsc, 177],[StrFromAsc, 128]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 231],[StrFromAsc, 132],[StrFromAsc, 138],[StrFromAsc, 230],[StrFromAsc, 142]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 165],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 140],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 178],[StrFromAsc, 228]]]
+[VarSet, LQRCN51, [StrMerge, #LQRCN51, [StrFromAsc, 184],[StrFromAsc, 173],[StrFromAsc, 230],[StrFromAsc, 173],[StrFromAsc, 162],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN71, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58]]]
+[VarSet, LQRCN71, [StrMerge, #LQRCN71, [StrFromAsc, 229],[StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155]]]
+[VarSet, LQRCN71, [StrMerge, #LQRCN71, [StrFromAsc, 155],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230]]]
+[VarSet, LQRCN71, [StrMerge, #LQRCN71, [StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 145]]]
+[VarSet, LQRCN88, [StrMerge, [StrFromAsc, 232],[StrFromAsc, 174],[StrFromAsc, 190],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 186],[StrFromAsc, 32],[StrFromAsc, 48],[StrFromAsc, 32]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 230],[StrFromAsc, 140],[StrFromAsc, 137],[StrFromAsc, 229],[StrFromAsc, 145],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 180]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 229],[StrFromAsc, 175],[StrFromAsc, 134],[StrFromAsc, 229],[StrFromAsc, 186],[StrFromAsc, 166],[StrFromAsc, 229],[StrFromAsc, 164],[StrFromAsc, 132]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 231],[StrFromAsc, 144],[StrFromAsc, 134],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 147]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 165],[StrFromAsc, 32],[StrFromAsc, 49],[StrFromAsc, 48],[StrFromAsc, 48],[StrFromAsc, 32],[StrFromAsc, 230]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 136],[StrFromAsc, 150],[StrFromAsc, 228],[StrFromAsc, 187],[StrFromAsc, 165],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 138],[StrFromAsc, 230]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 140],[StrFromAsc, 135],[StrFromAsc, 229],[StrFromAsc, 174],[StrFromAsc, 154],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 174],[StrFromAsc, 230]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 160],[StrFromAsc, 135],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176],[StrFromAsc, 227]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 174],[StrFromAsc, 158],[StrFromAsc, 233],[StrFromAsc, 153],[StrFromAsc, 133],[StrFromAsc, 233]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176],[StrFromAsc, 229],[StrFromAsc, 143],[StrFromAsc, 151],[StrFromAsc, 232]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 231],[StrFromAsc, 149],[StrFromAsc, 140],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 142],[StrFromAsc, 233]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 229],[StrFromAsc, 189],[StrFromAsc, 162],[StrFromAsc, 233],[StrFromAsc, 153],[StrFromAsc, 144],[StrFromAsc, 229]]]
+[VarSet, LQRCN88, [StrMerge, #LQRCN88, [StrFromAsc, 136],[StrFromAsc, 182],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN120, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58],[StrFromAsc, 229]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 58],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 136],[StrFromAsc, 232],[StrFromAsc, 156],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 162]]]
+[VarSet, LQRCN120, [StrMerge, #LQRCN120, [StrFromAsc, 229],[StrFromAsc, 184],[StrFromAsc, 131],[StrFromAsc, 231],[StrFromAsc, 186],[StrFromAsc, 191],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 137]]]
+[VarSet, LQRCN121, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 138],[StrFromAsc, 138],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 134],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 229],[StrFromAsc, 187],[StrFromAsc, 186],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 186],[StrFromAsc, 229],[StrFromAsc, 157],[StrFromAsc, 135]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 229],[StrFromAsc, 140],[StrFromAsc, 128],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 232],[StrFromAsc, 156],[StrFromAsc, 130]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 162],[StrFromAsc, 231],[StrFromAsc, 138],[StrFromAsc, 182],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 141],[StrFromAsc, 232],[StrFromAsc, 176],[StrFromAsc, 131],[StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 32],[StrFromAsc, 90],[StrFromAsc, 82],[StrFromAsc, 101],[StrFromAsc, 109],[StrFromAsc, 101],[StrFromAsc, 115],[StrFromAsc, 104],[StrFromAsc, 101]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 114],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 140],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 128],[StrFromAsc, 229],[StrFromAsc, 191]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 171],[StrFromAsc, 228],[StrFromAsc, 185],[StrFromAsc, 159],[StrFromAsc, 230],[StrFromAsc, 156],[StrFromAsc, 128],[StrFromAsc, 231],[StrFromAsc, 168]]]
+[VarSet, LQRCN121, [StrMerge, #LQRCN121, [StrFromAsc, 179],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN122, [StrMerge, [StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169],[StrFromAsc, 229],[StrFromAsc, 140],[StrFromAsc, 186]]]
+[VarSet, LQRCN122, [StrMerge, #LQRCN122, [StrFromAsc, 232],[StrFromAsc, 135],[StrFromAsc, 170],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 184],[StrFromAsc, 231],[StrFromAsc, 169],[StrFromAsc, 191]]]
+[VarSet, LQRCN122, [StrMerge, #LQRCN122, [StrFromAsc, 230],[StrFromAsc, 143],[StrFromAsc, 146],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 131],[StrFromAsc, 229],[StrFromAsc, 164],[StrFromAsc, 154]]]
+[VarSet, LQRCN122, [StrMerge, #LQRCN122, [StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 140],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 178],[StrFromAsc, 230],[StrFromAsc, 148],[StrFromAsc, 185]]]
+[VarSet, LQRCN122, [StrMerge, #LQRCN122, [StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168],[StrFromAsc, 232],[StrFromAsc, 156],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 162]]]
+[VarSet, LQRCN122, [StrMerge, #LQRCN122, [StrFromAsc, 229],[StrFromAsc, 184],[StrFromAsc, 131],[StrFromAsc, 231],[StrFromAsc, 186],[StrFromAsc, 191],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN110, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58],[StrFromAsc, 229]]]
+[VarSet, LQRCN110, [StrMerge, #LQRCN110, [StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232]]]
+[VarSet, LQRCN110, [StrMerge, #LQRCN110, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230]]]
+[VarSet, LQRCN110, [StrMerge, #LQRCN110, [StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 58],[StrFromAsc, 230],[StrFromAsc, 142],[StrFromAsc, 168],[StrFromAsc, 232],[StrFromAsc, 141],[StrFromAsc, 144]]]
+[VarSet, LQRCN110, [StrMerge, #LQRCN110, [StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176]]]
+[VarSet, LQRCN111, [StrMerge, [StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 187],[StrFromAsc, 229],[StrFromAsc, 165],[StrFromAsc, 189],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169],[StrFromAsc, 229],[StrFromAsc, 144],[StrFromAsc, 142],[StrFromAsc, 231],[StrFromAsc, 130],[StrFromAsc, 185]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 232],[StrFromAsc, 191],[StrFromAsc, 153],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 140],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 154]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 230],[StrFromAsc, 140],[StrFromAsc, 137],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 229],[StrFromAsc, 145],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 180],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 229],[StrFromAsc, 175],[StrFromAsc, 134],[StrFromAsc, 229],[StrFromAsc, 186],[StrFromAsc, 166]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 231],[StrFromAsc, 174],[StrFromAsc, 151],[StrFromAsc, 229],[StrFromAsc, 135],[StrFromAsc, 186],[StrFromAsc, 230],[StrFromAsc, 142],[StrFromAsc, 168]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 232],[StrFromAsc, 141],[StrFromAsc, 144],[StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 174]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 135],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 229],[StrFromAsc, 185],[StrFromAsc, 182],[StrFromAsc, 229],[StrFromAsc, 161],[StrFromAsc, 171],[StrFromAsc, 229],[StrFromAsc, 133],[StrFromAsc, 165]]]
+[VarSet, LQRCN111, [StrMerge, #LQRCN111, [StrFromAsc, 230],[StrFromAsc, 187],[StrFromAsc, 145],[StrFromAsc, 229],[StrFromAsc, 157],[StrFromAsc, 151],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN112, [StrMerge, [StrFromAsc, 230],[StrFromAsc, 142],[StrFromAsc, 168],[StrFromAsc, 232],[StrFromAsc, 141],[StrFromAsc, 144],[StrFromAsc, 231],[StrFromAsc, 155],[StrFromAsc, 174]]]
+[VarSet, LQRCN112, [StrMerge, #LQRCN112, [StrFromAsc, 230],[StrFromAsc, 160],[StrFromAsc, 135],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 230],[StrFromAsc, 149],[StrFromAsc, 176]]]
+[VarSet, LQRCN112, [StrMerge, #LQRCN112, [StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 154]]]
+[VarSet, LQRCN100, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58],[StrFromAsc, 229]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 58],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174],[StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 136],[StrFromAsc, 232],[StrFromAsc, 167],[StrFromAsc, 132],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 153]]]
+[VarSet, LQRCN100, [StrMerge, #LQRCN100, [StrFromAsc, 229],[StrFromAsc, 184],[StrFromAsc, 131],[StrFromAsc, 231],[StrFromAsc, 186],[StrFromAsc, 191],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 137]]]
+[VarSet, LQRCN101, [StrMerge, [StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168],[StrFromAsc, 32],[StrFromAsc, 67],[StrFromAsc, 116],[StrFromAsc, 114],[StrFromAsc, 108],[StrFromAsc, 32]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 187],[StrFromAsc, 229],[StrFromAsc, 165],[StrFromAsc, 189],[StrFromAsc, 233],[StrFromAsc, 129],[StrFromAsc, 174]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 231],[StrFromAsc, 189],[StrFromAsc, 169],[StrFromAsc, 229],[StrFromAsc, 134],[StrFromAsc, 141],[StrFromAsc, 231],[StrFromAsc, 130],[StrFromAsc, 185]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 232],[StrFromAsc, 191],[StrFromAsc, 153],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 140],[StrFromAsc, 239],[StrFromAsc, 188],[StrFromAsc, 154]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 228],[StrFromAsc, 191],[StrFromAsc, 157],[StrFromAsc, 231],[StrFromAsc, 149],[StrFromAsc, 153],[StrFromAsc, 32],[StrFromAsc, 90],[StrFromAsc, 82]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 101],[StrFromAsc, 109],[StrFromAsc, 101],[StrFromAsc, 115],[StrFromAsc, 104],[StrFromAsc, 101],[StrFromAsc, 114],[StrFromAsc, 32],[StrFromAsc, 231]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 232],[StrFromAsc, 167],[StrFromAsc, 132],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 153],[StrFromAsc, 229]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 239]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 188],[StrFromAsc, 140],[StrFromAsc, 232],[StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 231],[StrFromAsc, 149],[StrFromAsc, 140],[StrFromAsc, 231]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 149],[StrFromAsc, 153],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128],[StrFromAsc, 229],[StrFromAsc, 156],[StrFromAsc, 136],[StrFromAsc, 232]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 191],[StrFromAsc, 135],[StrFromAsc, 230],[StrFromAsc, 184],[StrFromAsc, 161],[StrFromAsc, 233],[StrFromAsc, 157],[StrFromAsc, 162],[StrFromAsc, 227]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 128],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 129],[StrFromAsc, 154],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 141],[StrFromAsc, 230]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 136],[StrFromAsc, 144],[StrFromAsc, 230],[StrFromAsc, 151],[StrFromAsc, 182],[StrFromAsc, 232],[StrFromAsc, 135],[StrFromAsc, 170],[StrFromAsc, 229]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 138],[StrFromAsc, 168],[StrFromAsc, 230],[StrFromAsc, 148],[StrFromAsc, 185],[StrFromAsc, 231],[StrFromAsc, 148],[StrFromAsc, 168],[StrFromAsc, 232]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 156],[StrFromAsc, 130],[StrFromAsc, 229],[StrFromAsc, 183],[StrFromAsc, 162],[StrFromAsc, 229],[StrFromAsc, 184],[StrFromAsc, 131],[StrFromAsc, 231]]]
+[VarSet, LQRCN101, [StrMerge, #LQRCN101, [StrFromAsc, 186],[StrFromAsc, 191],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+[VarSet, LQRCN104, [StrMerge, [StrFromAsc, 90],[StrFromAsc, 80],[StrFromAsc, 108],[StrFromAsc, 117],[StrFromAsc, 103],[StrFromAsc, 105],[StrFromAsc, 110],[StrFromAsc, 58],[StrFromAsc, 229]]]
+[VarSet, LQRCN104, [StrMerge, #LQRCN104, [StrFromAsc, 177],[StrFromAsc, 128],[StrFromAsc, 233],[StrFromAsc, 131],[StrFromAsc, 168],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 155],[StrFromAsc, 232]]]
+[VarSet, LQRCN104, [StrMerge, #LQRCN104, [StrFromAsc, 190],[StrFromAsc, 185],[StrFromAsc, 233],[StrFromAsc, 135],[StrFromAsc, 141],[StrFromAsc, 230],[StrFromAsc, 139],[StrFromAsc, 147],[StrFromAsc, 230]]]
+[VarSet, LQRCN104, [StrMerge, #LQRCN104, [StrFromAsc, 137],[StrFromAsc, 145],[StrFromAsc, 58],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 158],[StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 176]]]
+[VarSet, LQRCN104, [StrMerge, #LQRCN104, [StrFromAsc, 229],[StrFromAsc, 142],[StrFromAsc, 159],[StrFromAsc, 230],[StrFromAsc, 168],[StrFromAsc, 161],[StrFromAsc, 229],[StrFromAsc, 158],[StrFromAsc, 139]]]
+[VarSet, LQRCN105, [StrMerge, [StrFromAsc, 229],[StrFromAsc, 136],[StrFromAsc, 135],[StrFromAsc, 229],[StrFromAsc, 155],[StrFromAsc, 158],[StrFromAsc, 229],[StrFromAsc, 189],[StrFromAsc, 147]]]
+[VarSet, LQRCN105, [StrMerge, #LQRCN105, [StrFromAsc, 229],[StrFromAsc, 137],[StrFromAsc, 141],[StrFromAsc, 32],[StrFromAsc, 84],[StrFromAsc, 111],[StrFromAsc, 111],[StrFromAsc, 108],[StrFromAsc, 32]]]
+[VarSet, LQRCN105, [StrMerge, #LQRCN105, [StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 138],[StrFromAsc, 228],[StrFromAsc, 184],[StrFromAsc, 128],[StrFromAsc, 230],[StrFromAsc, 172],[StrFromAsc, 161]]]
+[VarSet, LQRCN105, [StrMerge, #LQRCN105, [StrFromAsc, 230],[StrFromAsc, 137],[StrFromAsc, 167],[StrFromAsc, 232],[StrFromAsc, 161],[StrFromAsc, 140],[StrFromAsc, 229],[StrFromAsc, 137],[StrFromAsc, 141]]]
+[VarSet, LQRCN105, [StrMerge, #LQRCN105, [StrFromAsc, 231],[StrFromAsc, 154],[StrFromAsc, 132],[StrFromAsc, 32],[StrFromAsc, 83],[StrFromAsc, 117],[StrFromAsc, 98],[StrFromAsc, 84],[StrFromAsc, 111]]]
+[VarSet, LQRCN105, [StrMerge, #LQRCN105, [StrFromAsc, 111],[StrFromAsc, 108],[StrFromAsc, 227],[StrFromAsc, 128],[StrFromAsc, 130]]]
+
+
+// -----------------------------------------------------------------------------
+// Installed worker and geometry exports use the same short directory.
+[RoutineDef, LQREnsurePaths,
+  [VarSet, LQRDIR, "C:/LQR/"]
+  [VarSet, LQRLAUNCHER, "C:/LQR/LqrLaunch.exe"]
+]
+
+// Stage trace. Overwrites one small file so a crash leaves the last
+// completed step on disk. Uses the block name and command order that ran
+// live in 1.3.2.
+[RoutineDef, LQRMark,
+  [VarSet, LQRSTAGETXT, [StrMerge, "LQR_STAGE ", LQRSTAGE, " phase ", LQRPHASE, " vstat ", LQRVSTAT, " ", #LQRPREFIX]]
+  [MemDelete, LQRBAT]
+  [MemCreate, LQRBAT, 4096, 0]
+  [VarSet, LQRBYTES, [MemWriteString, LQRBAT, #LQRSTAGETXT, 0]]
+  [VarSet, LQRBYTES, (LQRBYTES - 1)]
+  [MemResize, LQRBAT, LQRBYTES]
+  [MemSaveToFile, LQRBAT, #LQRSTAGEFILE, 1]
+  [MemDelete, LQRBAT]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: abort cleanly. Caller must set LQRMSG first.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRFail,
+  [NoteBar, ""]
+  [IShowActions, -1]
+  [NoteBar, #LQRMSG, 0]
+  [Exit]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: verify every ZBrush 2025 UI item path used below exists.
+// Critical ZRemesher switches accept both flat and nested path variants.
+// IMPORTANT (verified on 2025.0.1): Tool:* items only exist while a
+// PolyMesh3D is loaded in Edit mode. Without one, IExists returns 0 for all
+// of them and a naive check would report ~15 false "missing path" errors.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRSelfCheck,
+  [VarSet, LQRTMP, [GetPolyMesh3DArea]]
+  [If, (LQRTMP <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN2, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRN, 0]
+  [If, [IExists, "Transform:Edit"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:Clear"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:GrowMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:ShrinkMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:BlurMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Visibility:HidePt"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Visibility:ShowPt"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:SubTool:Duplicate"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Import"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Export"], , [VarInc, LQRN]]
+  // ZRemesher button: flat path is what ZBrush 2025 macros record.
+  [If, [IExists, "Tool:Geometry:ZRemesher"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:ZRemesher"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  // FreezeBorder: accept flat or ZRemesher-subpalette nested path.
+  [If, [IExists, "Tool:Geometry:FreezeBorder"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:FreezeBorder"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:Target Polygons Count"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:Target Polygons Count"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:AdaptiveSize"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:AdaptiveSize"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, (LQRN > 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN3, LQRN, #LQRCN4]]
+    [RoutineCall, LQRFail]
+  ]
+]
+
+// -----------------------------------------------------------------------------
+// Snapshot visibility by list position. Duplicate SubTools can share an ID.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRSnap,
+  [VarSet, LQRSUBCOUNT, [SubToolGetCount]]
+  [If, (LQRSUBCOUNT > 256), [VarSet, LQRSUBCOUNT, 256]]
+  [VarSet, LQRI, 0]
+  [If, (LQRSUBCOUNT > 0),
+    [Loop, LQRSUBCOUNT,
+      [VarSet, LQRSTATUS(LQRI), [SubToolGetStatus, LQRI]]
+      [VarInc, LQRI]
+    ]
+  ]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: show ONLY the SubTool whose index is in LQRKEEP.
+// OBJ export writes all VISIBLE SubTools into one file, so other SubTools must
+// be hidden or the validator would see duplicated / overlapping geometry.
+// Status bit 0x01 = SubTool eye.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRHideOthers,
+  [VarSet, LQRN, [SubToolGetCount]]
+  [VarSet, LQRI, 0]
+  [If, (LQRN > 0),
+    [Loop, LQRN,
+      [VarSet, LQRTMP, [SubToolGetStatus, LQRI]]
+      [If, (LQRI = LQRKEEP),
+        [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRI, (LQRTMP + 1)]]
+      ,
+        [If, ((LQRTMP & 1) = 1), [SubToolSetStatus, LQRI, (LQRTMP - 1)]]
+      ]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IUpdate, 1, 1]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: restore the visibility state captured by LQRSnap.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRRestoreVis,
+  [VarSet, LQRI, 0]
+  [If, (LQRSUBCOUNT > 0),
+    [Loop, LQRSUBCOUNT,
+      [VarSet, LQRTMP, LQRI]
+      [If, ((LQRREADY = 1) * (LQRI >= LQRWORK)), [VarInc, LQRTMP]]
+      [SubToolSetStatus, LQRTMP, LQRSTATUS(LQRI)]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IUpdate, 1, 1]
+]
+
+// -----------------------------------------------------------------------------
+// Run the worker. 1 = PASS  2 = FAIL  3 = unavailable  4 = import candidate.
+[RoutineDef, LQRValidate,
+  [RoutineCall, LQREnsurePaths]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [VarSet, LQRVSTAT, 3]
+  [VarSet, LQRHIT, [StrFind, " ", #LQRDIR]]
+  [If, ((LQRHIT < 0) * [FileExists, #LQRLAUNCHER] * [FileExists, #LQRAFTER]),
+    [If, [FileExists, #LQRREPORT], [FileDelete, #LQRREPORT]]
+    [VarSet, LQRSTAGE, 8] [RoutineCall, LQRMark]
+    [ShellExecute, #LQRLAUNCHER]
+    [VarSet, LQRSTAGE, 9] [RoutineCall, LQRMark]
+    [Loop, LQRWAITLOOPS,
+      [If, [FileExists, #LQRREPORT], [LoopExit], [Delay, 0.5]]
+    ]
+    [If, [FileExists, #LQRREPORT],
+      [VarSet, LQRLINE, ""]
+      [MemDelete, LQRREP]
+      [MemCreateFromFile, LQRREP, #LQRREPORT]
+      [MemReadString, LQRREP, LQRLINE, 0, 1]
+      [MemDelete, LQRREP]
+      [If, ([StrFind, "LQR_STATUS:PASS", #LQRLINE] = 0), [VarSet, LQRVSTAT, 1]]
+      [If, ([StrFind, "LQR_STATUS:FAIL", #LQRLINE] = 0), [VarSet, LQRVSTAT, 2]]
+      [If, ([StrFind, "LQR_STATUS:IMPORT", #LQRLINE] = 0), [VarSet, LQRVSTAT, 4]]
+    ]
+    [VarSet, LQRSTAGE, 10] [RoutineCall, LQRMark]
+  ]
+]
+
+[RoutineDef, LQRShowStatus,
+  [If, (LQRVSTAT = 2), [NoteBar, [StrMerge, #LQRCN15, " ", #LQRREPORT], 0]]
+  [If, (LQRVSTAT = 3), [NoteBar, #LQRCN16, 0]]
+]
+
+// Change only the eye bit. Folder and Boolean settings stay intact.
+[RoutineDef, LQREyeOff,
+  [VarSet, LQRTMP, [SubToolGetStatus, LQRKEEP]]
+  [If, ((LQRTMP & 1) = 1), [SubToolSetStatus, LQRKEEP, (LQRTMP - 1)]]
+]
+
+[RoutineDef, LQRRollback,
+  [If, ((LQRREADY = 1) * ([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1))),
+    [RoutineCall, LQRRestoreVis]
+    [VarSet, LQRKEEP, LQRWORK]
+    [RoutineCall, LQREyeOff]
+    [SubToolSelect, LQRORIG]
+    [VarSet, LQRREADY, 0]
+    [IUpdate, 1, 1]
+  ,
+    [NoteBar, #LQRCN20, 0]
+  ]
+]
+
+[RoutineDef, LQRShowOriginal,
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQREyeOff]
+  [SubToolSelect, LQRORIG]
+  [IUpdate, 1, 1]
+]
+
+[RoutineDef, LQRShowResult,
+  [SubToolSelect, LQRWORK]
+  [VarSet, LQRTMP, [SubToolGetStatus, LQRWORK]]
+  [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRWORK, (LQRTMP + 1)]]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+  [IUpdate, 1, 1]
+]
+
+// Recovered output is applied only to the working duplicate.
+[RoutineDef, LQRApplyRecovery,
+  [VarSet, LQRVSTAT, 3]
+  [If, (([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1)) * [FileExists, #LQRRECOVERED]),
+    [SubToolSelect, LQRWORK]
+    [VarSet, LQRTMP, [SubToolGetStatus, LQRWORK]]
+    [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRWORK, (LQRTMP + 1)]]
+    [If, [IExists, "Tool:Import:Tri2Quad"], [ISet, "Tool:Import:Tri2Quad", 0]]
+    [FileNameSetNext, #LQRRECOVERED]
+    [IPress, "Tool:Import"]
+    [IUpdate, 2, 1]
+    [VarSet, LQRSTAGE, 11] [RoutineCall, LQRMark]
+    [If, (([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1)) * ([SubToolGetActiveIndex] = LQRWORK)),
+      [VarSet, LQRKEEP, LQRWORK]
+      [RoutineCall, LQRHideOthers]
+      [FileNameSetNext, #LQRROUNDTRIP]
+      [IPress, "Tool:Export"]
+      [VarSet, LQRSTAGE, 12] [RoutineCall, LQRMark]
+      [RoutineCall, LQRShowOriginal]
+      [If, [FileExists, #LQRROUNDTRIP],
+        [VarSet, LQRPHASE, 2]
+        [RoutineCall, LQRValidate]
+      ]
+    ,
+      [ToolSelect, LQRTOOL]
+    ]
+  ]
+]
+
+// ROUTINE: MAIN ENTRY POINT
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// ROUTINE: suggest a face target for the masked area and put it in the slider.
+// Exports the whole mesh and the masked part, then asks the worker (mode 3).
+// Nothing is duplicated or remeshed; the mask itself is left as painted.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRRecommend,
+  [IShowActions, 0]
+  [NoteBar, ""]
+  [VarSet, LQRREADY, 0]
+  [VarSet, LQRVSTAT, 0]
+  [VarSet, LQRPHASE, 0]
+  [VarSet, LQRN, [IGet, "Transform:Edit"]]
+  [If, (LQRN = 1),
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN22, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRAREAFULL, [GetPolyMesh3DArea]]
+  [If, (LQRAREAFULL <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN24, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [RoutineCall, LQREnsurePaths]
+  [VarSet, LQRBASEIDX, [SubToolGetActiveIndex]]
+  [If, ([SubToolGetCount] > 256),
+    [VarSet, LQRMSG, "Too many SubTools for the visibility snapshot."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [If, ([FileExists, #LQRPIPE] * [FileExists, #LQRLAUNCHER]), ,
+    [VarSet, LQRMSG, "LocalQuadRetopo background files are missing. Re-run INSTALL.bat."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRSTAGE, 21] [RoutineCall, LQRMark]
+  [RoutineCall, LQRSnap]
+  [VarInc, LQRSERIAL]
+  // Mode 3 asks the worker for a recommendation only.
+  [VarSet, LQRPREFIX, [StrMerge, "lqr", [ZBrushInfo, 7], "_", [ZBrushInfo, 2], "_", LQRSERIAL, "_1_3_0.5_"]]
+  [VarSet, LQRBEFORE, [StrMerge, #LQRDIR, #LQRPREFIX, "before.obj"]]
+  [VarSet, LQRAFTER, [StrMerge, #LQRDIR, #LQRPREFIX, "after.obj"]]
+  [VarSet, LQRREPORT, [StrMerge, #LQRDIR, #LQRPREFIX, "report.txt"]]
+  [VarSet, LQRKEEP, LQRBASEIDX]
+  [RoutineCall, LQRHideOthers]
+  [If, [IExists, "Tool:Export:QUD"], [ISet, "Tool:Export:QUD", 1]]
+  [If, [IExists, "Tool:Export:TRI"], [ISet, "Tool:Export:TRI", 0]]
+  [If, [IExists, "Tool:Export:MRG"], [ISet, "Tool:Export:MRG", 0]]
+  [If, [IExists, "Tool:Export:GRP"], [ISet, "Tool:Export:GRP", 0]]
+  [If, [FileExists, #LQRBEFORE], [FileDelete, #LQRBEFORE]]
+  [FileNameSetNext, #LQRBEFORE]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 22] [RoutineCall, LQRMark]
+  // HidePt hides the unmasked polygons and keeps the mask.
+  [IPress, "Tool:Visibility:HidePt"]
+  [IUpdate, 2, 1]
+  [VarSet, LQRAREAVIS, [GetPolyMesh3DArea]]
+  [If, ((LQRAREAVIS <= 0) + (LQRAREAVIS >= (LQRAREAFULL * 0.999))),
+    [IPress, "Tool:Visibility:ShowPt"]
+    [RoutineCall, LQRRestoreVis]
+    [VarSet, LQRMSG, [StrMerge, #LQRCN45, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [If, [FileExists, #LQRAFTER], [FileDelete, #LQRAFTER]]
+  [FileNameSetNext, #LQRAFTER]
+  [IPress, "Tool:Export"]
+  // HidePt drops the mask. Only the masked part is visible now, so masking
+  // everything visible before showing the rest puts the mask back.
+  [If, [IExists, "Tool:Masking:MaskAll"], [IPress, "Tool:Masking:MaskAll"]]
+  [IPress, "Tool:Visibility:ShowPt"]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRSTAGE, 23] [RoutineCall, LQRMark]
+  [VarSet, LQRLINE, ""]
+  [RoutineCall, LQRValidate]
+  [VarSet, LQRRECN, 0]
+  [VarSet, LQRRISK, 0]
+  [If, ([StrFind, "LQR_STATUS:RECOMMEND", #LQRLINE] = 0),
+    // "R1" after the count: the masked surface passes through itself.
+    [If, (([StrToAsc, #LQRLINE, 28] - 48) = 1), [VarSet, LQRRISK, 1]]
+    // The count is five digits starting at character 21.
+    [VarSet, LQRI, 21]
+    [Loop, 5,
+      [VarSet, LQRDIGIT, ([StrToAsc, #LQRLINE, LQRI] - 48)]
+      [If, ((LQRDIGIT >= 0) * (LQRDIGIT <= 9)), [VarSet, LQRRECN, ((LQRRECN * 10) + LQRDIGIT)]]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IShowActions, -1]
+  [If, (LQRQUIET = 1), ,
+    [If, (LQRRECN > 0),
+      [ISet, #LQRCN25, LQRRECN]
+      [NoteBar, [StrMerge, #LQRCN112, LQRRECN], 0]
+    ,
+      [NoteBar, [StrMerge, #LQRCN15, " ", #LQRREPORT], 0]
+    ]
+  ]
+  [VarSet, LQRQUIET, 0]
+  [VarSet, LQRSTAGE, 24] [RoutineCall, LQRMark]
+]
+
+[RoutineDef, LQRRun,
+  [IShowActions, 0]
+  [NoteBar, ""]
+  [VarSet, LQRREADY, 0]
+  [VarSet, LQRVSTAT, 0]
+  [VarSet, LQRPHASE, 1]
+
+  // ---- (A) Parameter validation ------------------------------------------
+  [VarSet, LQRN, [IGet, "Transform:Edit"]]
+  [If, (LQRN = 1),
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN22, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [If, [IsEnabled, "Tool:Geometry:ZRemesher"],
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN23, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRAREAFULL, [GetPolyMesh3DArea]]
+  [If, (LQRAREAFULL <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN24, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  // Zero uses the default native target and automatic recovery density.
+  // A positive value is entered as faces.
+  [VarSet, LQRN, [IGet, #LQRCN25]]
+  [VarSet, LQRGRID, LQRWANT]
+  [VarSet, LQRAUTO, 0]
+  // Both layouts first run the Recommend check. It stops the run when no
+  // mask is drawn or the mask covers the whole SubTool (the honeycomb layout
+  // once took a whole SubTool on ZBrush 2022), leaves a solid mask on exactly
+  // the region it measured, and reports whether the masked surface passes
+  // through itself. The regular layout also takes its automatic target from
+  // it; the slider goes back to 0 when the run ends. A self-crossing mask
+  // leaves ZRemesher out and the honeycomb layout is used.
+  [VarSet, LQRQUIET, 1]
+  [If, ((LQRGRID = 1) * (LQRN < 0.5)), [VarSet, LQRAUTO, 1] [VarSet, LQRQUIET, 0]]
+  [RoutineCall, LQRRecommend]
+  [If, (LQRGRID = 1),
+    [IShowActions, 0]
+    [NoteBar, ""]
+    [VarSet, LQRREADY, 0]
+    [VarSet, LQRVSTAT, 0]
+    [VarSet, LQRPHASE, 1]
+    [VarSet, LQRN, [IGet, #LQRCN25]]
+    [If, (LQRRISK = 1), [VarSet, LQRGRID, 0]]
+  ]
+  [VarSet, LQRMODE, 2]
+  [VarSet, LQRTARGET, 0.699]
+  [If, (LQRN > 0.5),
+    [VarSet, LQRMODE, 0]
+    [If, (LQRN < 100), [VarSet, LQRN, 100]]
+    [VarSet, LQRTARGET, (LQRN / 1000)]
+  ]
+  // Job settings read by the worker: mode 1 asks for the regular layout,
+  // and a target of 0.09 there means automatic.
+  [VarSet, LQRJOBMODE, LQRMODE]
+  [VarSet, LQRJOBT, LQRTARGET]
+  [If, (LQRGRID = 1),
+    [If, (LQRMODE = 2), [VarSet, LQRJOBT, 0.09]]
+    [VarSet, LQRJOBMODE, 1]
+  ]
+  [RoutineCall, LQREnsurePaths]
+
+  [RoutineCall, LQRSelfCheck]
+
+  // ---- (B) Identify the target and snapshot visibility --------------------
+  [VarSet, LQRBASEIDX, [SubToolGetActiveIndex]]
+  [VarSet, LQRTOOL, [ToolGetActiveIndex]]
+  [If, ([SubToolGetCount] > 256),
+    [VarSet, LQRMSG, "Too many SubTools for the visibility snapshot."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [If, ([FileExists, #LQRPIPE] * [FileExists, #LQRLAUNCHER]), ,
+    [VarSet, LQRMSG, "LocalQuadRetopo background files are missing. Re-run INSTALL.bat."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRSTAGE, 1] [RoutineCall, LQRMark]
+  [RoutineCall, LQRSnap]
+  [VarInc, LQRSERIAL]
+  [VarSet, LQRSETTINGS, [StrMerge, LQRRATIO, "_", LQRJOBMODE, "_", LQRJOBT, "_"]]
+  [VarSet, LQRPREFIX, [StrMerge, "lqr", [ZBrushInfo, 7], "_", [ZBrushInfo, 2], "_", LQRSERIAL, "_", #LQRSETTINGS]]
+  [VarSet, LQRBEFORE, [StrMerge, #LQRDIR, #LQRPREFIX, "before.obj"]]
+  [VarSet, LQRAFTER, [StrMerge, #LQRDIR, #LQRPREFIX, "after.obj"]]
+  [VarSet, LQRREPORT, [StrMerge, #LQRDIR, #LQRPREFIX, "report.txt"]]
+  [VarSet, LQRSELECTION, [StrMerge, #LQRDIR, #LQRPREFIX, "selection.obj"]]
+  [VarSet, LQRRECOVERED, [StrMerge, #LQRDIR, #LQRPREFIX, "recovered.obj"]]
+  [VarSet, LQRROUNDTRIP, [StrMerge, #LQRDIR, #LQRPREFIX, "roundtrip.obj"]]
+  [If, [FileExists, #LQRSELECTION], [FileDelete, #LQRSELECTION]]
+  [If, [FileExists, #LQRRECOVERED], [FileDelete, #LQRRECOVERED]]
+  [If, [FileExists, #LQRROUNDTRIP], [FileDelete, #LQRROUNDTRIP]]
+
+  // ---- (C) Export the ORIGINAL mesh for the locality comparison -----------
+  [VarSet, LQRN, [StrLength, #LQRBEFORE]]
+  [If, (LQRN > 0),
+    [VarSet, LQRKEEP, LQRBASEIDX]
+    [RoutineCall, LQRHideOthers]
+    [If, [FileExists, #LQRBEFORE], [FileDelete, #LQRBEFORE]]
+    // Best-effort export switches. Verified on 2025.0.1: only MRG is
+    // addressable via IExists here; QUD/TRI/GRP are silently skipped.
+    // OBJ export is quad-only by default in this build (24576/24576 quads
+    // measured), and lqr_validate.py re-checks every exported face anyway.
+    [If, [IExists, "Tool:Export:QUD"], [ISet, "Tool:Export:QUD", 1]]
+    [If, [IExists, "Tool:Export:TRI"], [ISet, "Tool:Export:TRI", 0]]
+    [If, [IExists, "Tool:Export:MRG"], [ISet, "Tool:Export:MRG", 0]]
+    [If, [IExists, "Tool:Export:GRP"], [ISet, "Tool:Export:GRP", 0]]
+    [FileNameSetNext, #LQRBEFORE]
+    [IPress, "Tool:Export"]
+    [RoutineCall, LQRRestoreVis]
+  ]
+  [VarSet, LQRSTAGE, 2] [RoutineCall, LQRMark]
+
+  // Make a working duplicate. The original remains available for rollback.
+  [IPress, "Tool:SubTool:Duplicate"]
+  // Duplicate inserts directly below the source, regardless of selection.
+  [If, ([SubToolGetCount] = (LQRSUBCOUNT + 1)),
+    [VarSet, LQRORIG, LQRBASEIDX]
+    [VarSet, LQRWORK, (LQRBASEIDX + 1)]
+    [SubToolSelect, LQRWORK]
+  ,
+    [VarSet, LQRMSG, "Could not create the working duplicate."]
+    [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRREADY, 1]
+  [VarSet, LQRSTAGE, 3] [RoutineCall, LQRMark]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+
+  // Use the same mask refinement as the verified defaults.
+  [Loop, 3, [IPress, "Tool:Masking:GrowMask"]]
+  [Loop, 3, [IPress, "Tool:Masking:ShrinkMask"]]
+  [Loop, 2, [IPress, "Tool:Masking:BlurMask"]]
+
+  // ---- (H) Convert mask -> visibility. HidePt hides the UNMASKED polygons,
+  //         so exactly the brush-covered region stays visible. --------------
+  [IPress, "Tool:Visibility:HidePt"]
+  [IPress, "Tool:Masking:Clear"]
+  [IUpdate, 2, 1]
+
+  // Check that ZBrush shows part, but not all, of the surface.
+  [VarSet, LQRAREAVIS, [GetPolyMesh3DArea]]
+  [If, ((LQRAREAVIS <= 0) + (LQRAREAVIS >= (LQRAREAFULL * 0.999))),
+    [IPress, "Tool:Visibility:ShowPt"]
+    [VarSet, LQRMSG, [StrMerge, #LQRCN45, ""]]
+    [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+    [RoutineCall, LQRFail]
+  ]
+  // Capture the actual mask scope before changing any topology.
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQRHideOthers]
+  [FileNameSetNext, #LQRSELECTION]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 4] [RoutineCall, LQRMark]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+
+  // The honeycomb layout is built from the source surface alone, so
+  // ZRemesher is not run for it at all.
+  [If, (LQRGRID = 1),
+  // ---- (I) Configure ZRemesher. FreezeBorder is MANDATORY: it preserves the
+  //         border vertices and welds the quad patch back. ------------------
+  [If, [IExists, "Tool:Geometry:FreezeBorder"],
+    [ISet, "Tool:Geometry:FreezeBorder", 1]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:FreezeBorder"],
+      [ISet, "Tool:Geometry:ZRemesher:FreezeBorder", 1]
+    ,
+      [VarSet, LQRMSG, [StrMerge, #LQRCN51, ""]]
+      [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+      [RoutineCall, LQRFail]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:FreezeGroups"], [ISet, "Tool:Geometry:FreezeGroups", 0]]
+  [If, [IExists, "Tool:Geometry:KeepGroups"],
+    [ISet, "Tool:Geometry:KeepGroups", 0]
+  ]
+  [If, [IExists, "Tool:Geometry:SmoothGroups"],
+    [ISet, "Tool:Geometry:SmoothGroups", 1]
+  ]
+  [If, [IExists, "Tool:Geometry:DetectEdges"], [ISet, "Tool:Geometry:DetectEdges", 0]]
+  [If, [IExists, "Tool:Geometry:AdaptiveSize"],
+    [ISet, "Tool:Geometry:AdaptiveSize", 10]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:AdaptiveSize"],
+      [ISet, "Tool:Geometry:ZRemesher:AdaptiveSize", 10]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:Target Polygons Count"],
+    [ISet, "Tool:Geometry:Target Polygons Count", LQRTARGET]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:Target Polygons Count"],
+      [ISet, "Tool:Geometry:ZRemesher:Target Polygons Count", LQRTARGET]
+    ]
+  ]
+
+  // ---- (J) Partial Mesh ZRemesher ----------------------------------------
+  // ZBrush remeshes ONLY visible polygons, keeps hidden topology untouched,
+  // welds with FreezeBorder and makes the whole model visible again.
+  [IPress, "Tool:Geometry:ZRemesher"]
+  [IUpdate, 3, 1]
+  ]
+  [IPress, "Tool:Visibility:ShowPt"]
+  [VarSet, LQRSTAGE, 5] [RoutineCall, LQRMark]
+
+  // Export the native candidate before deciding whether to apply recovery.
+  [SubToolSelect, LQRWORK]
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQRHideOthers]
+  [If, [FileExists, #LQRAFTER], [FileDelete, #LQRAFTER]]
+  [FileNameSetNext, #LQRAFTER]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 6] [RoutineCall, LQRMark]
+  [RoutineCall, LQRShowOriginal]
+  [VarSet, LQRSTAGE, 7] [RoutineCall, LQRMark]
+
+  [VarSet, LQRPHASE, 1]
+  [RoutineCall, LQRValidate]
+  [If, (LQRVSTAT = 4), [RoutineCall, LQRApplyRecovery]]
+  [If, (LQRVSTAT = 1), [RoutineCall, LQRShowResult], [RoutineCall, LQRRollback]]
+  [VarSet, LQRSTAGE, 13] [RoutineCall, LQRMark]
+  [If, (LQRAUTO = 1), [ISet, #LQRCN25, 0]]
+  [IShowActions, -1]
+  [RoutineCall, LQRShowStatus]
+  // Say why the regular layout was not used, when the run itself succeeded.
+  [If, ((LQRWANT = 1) * (LQRRISK = 1) * (LQRVSTAT = 1)), [NoteBar, #LQRCN122, 0]]
+  [VarSet, LQRSTAGE, 14] [RoutineCall, LQRMark]
+]
+
+// -----------------------------------------------------------------------------
+// Compact panel. The mask is drawn with ZBrush's native masking controls.
+[ISubPalette, #LQRCN71]
+[ISlider, #LQRCN25, 0, 10, 0, 5000, #LQRCN88, , , 0]
+[IButton, #LQRCN110, #LQRCN111, [RoutineCall, LQRRecommend], 0, 1]
+[IButton, #LQRCN100, #LQRCN101, [VarSet, LQRWANT, 1] [RoutineCall, LQRRun], 0, 1]
+[IButton, #LQRCN120, #LQRCN121, [VarSet, LQRWANT, 0] [RoutineCall, LQRRun], 0, 1]
+[IButton, #LQRCN104, #LQRCN105, [RoutineCall, LQRRollback], 0, 1]

@@ -1,0 +1,184 @@
+﻿================================================================
+  Local Quad Retopo (LocalQuadRetopo) - User Guide    Version 1.4.3
+================================================================
+
+For installation, first read "README.txt" in the same folder. This
+guide explains how to use the plug-in.
+
+
+1. What it does
+----------------------------------------------------------------
+
+Mask an area of a model in ZBrush and the plug-in rebuilds that area
+as quads. Faces outside the mask stay exactly as they were, and the
+new and old parts meet point for point along the mask border, with
+no gaps and no overlaps.
+
+Typical uses:
+  - triangle areas left behind by Sculptris Pro or DynaMesh
+  - faces stretched long and thin by a brush
+  - one area you are not happy with after a full ZRemesher pass,
+    when you want to redo only that area
+
+
+2. The panel
+----------------------------------------------------------------
+
+Location: ZPlugin > Local Quad Retopo
+
+  Target Faces - 0 Auto
+      Roughly how many faces the masked area has after the retopo.
+      0 = decided from the face density around the mask, so the new
+      faces are about the size of their neighbours.
+      Dragging moves in steps of 10; click the slider to type a
+      number. Range 0-5000.
+
+  Recommend Faces
+      Reads the current mask, puts the recommended face count in the
+      slider and shows it at the top. Useful when you want to see a
+      number first and then decide to go higher or lower.
+
+  Retopo Mask - Regular
+      Keeps the regular quads that ZRemesher creates in the middle
+      and adds a ring of transition faces between them and the mask
+      border. Clean edge flow.
+
+  Retopo Mask - Honeycomb
+      Rebuilds the whole area as quads of even size, with a
+      honeycomb-like edge flow. Does not use ZRemesher, is faster,
+      and works for almost any mask shape.
+
+  Back to Original
+      Switches back to the model from before the run (for the most
+      recent run only).
+
+
+3. Basic use
+----------------------------------------------------------------
+
+  1. Select the SubTool to work on and make sure it is in Edit mode
+     (the Edit button is lit).
+  2. Hold Ctrl and paint a mask over the area to retopologize.
+     - The mask may be several separate pieces and may span several
+       polygroups.
+     - A mask slightly larger than the problem area gives better
+       results.
+  3. Click "Retopo Mask - Regular" or "Retopo Mask - Honeycomb".
+  4. Wait a few seconds to a little over ten seconds. ZBrush does
+     not respond during this time; that is normal. Do not click
+     anything else.
+  5. When it is done:
+     - The result is a new SubTool. The original model stays in the
+       SubTool list, hidden.
+     - If you do not like it, click "Back to Original", adjust the
+       mask or the face count and run again.
+     - Once you are happy, you can delete the original SubTool
+       yourself.
+
+Leave the target face count at 0 in most cases. For a denser or
+sparser result, click "Recommend Faces" to get a starting number,
+raise or lower it, then run.
+
+
+4. Choosing a layout
+----------------------------------------------------------------
+
+                 Regular                       Honeycomb
+  Look       a tidy grid in the middle,    even face size,
+             a ring of transition faces    honeycomb-like flow
+             at the border
+  Speed      slower (about 5-25 s)         faster (about 2-15 s)
+  Reliability depends on ZRemesher; may    succeeds almost always
+             fail on very narrow or
+             scattered masks
+  Best for   areas you will subdivide,     areas that only need
+             keep sculpting, or where      even, unstretched faces,
+             edge flow matters             or when Regular fails
+
+When the regular layout cannot produce a valid result, the plug-in
+switches to the honeycomb layout by itself (areas that were already
+clean quads are "paired" instead, which keeps their edge flow), so
+the run does not fail because of it. When the masked area passes
+through itself a lot, the plug-in goes straight to the honeycomb
+layout and says so at the top.
+
+
+5. Recommended workflow with Sculptris Pro
+----------------------------------------------------------------
+
+Sculptris Pro adds faces while you sculpt, so no amount of pulling
+leaves stretched faces; the cost is that every brushed area turns
+into triangles. This plug-in turns those areas back into quads.
+Alternate between the two:
+
+  1. Turn Sculptris Pro on and sculpt freely, without worrying
+     about topology.
+  2. When one part is done, turn Sculptris Pro off.
+  3. Mask the area that became triangles. Make the mask slightly
+     larger than the triangle area so a little of the clean quads
+     around it is included; the join looks more natural.
+  4. Click one of the two "Retopo Mask" buttons to turn the area
+     back into quads.
+  5. Move on to the next part and repeat.
+
+You sculpt without topology limits, and the model stays mostly quads,
+ready for subdividing, smoothing and UV unwrapping.
+
+Tip: give the button you use most a hotkey, and the workflow becomes
+"paint the mask, press a key". In ZBrush, hold Ctrl+Alt and click the
+button, then press the key you want. Save it with
+Preferences > Hotkeys > Store so it is kept after a restart.
+
+
+6. Things to know
+----------------------------------------------------------------
+
+  - Save your project before using the regular layout. It calls
+    ZBrush's own ZRemesher, which can crash ZBrush on a few extreme
+    meshes; the plug-in cannot prevent that. The honeycomb layout
+    does not call ZRemesher.
+  - With a very dense mask border, or large faces around it, the
+    final face count is higher than the target, because both sides
+    of the border need enough faces to join.
+  - If faces inside the masked area already pass through each other
+    (for example a face pulled into another one with the Move
+    brush), a few crossings may remain after the retopo. A new
+    layout cannot change the shape; fix the shape first.
+  - The regular layout softens hard creases inside the mask a little.
+  - "Recommend Faces" and both "Retopo Mask" buttons show any parts
+    of the model you had hidden, and turn the mask into a hard-edged
+    mask (soft falloff is lost). This does not affect the retopo.
+  - A mask is required, and it must cover only part of the SubTool.
+    With no mask, or a mask over the whole SubTool, the plug-in
+    shows a message at the top and stops without changing anything.
+    The mask is gone after a retopo; to work on the same area again,
+    paint the mask again.
+  - Every run adds one result SubTool; remove original models you no
+    longer need.
+  - Do not mask too large an area at once. Ten thousand faces take
+    over ten seconds; a run that takes more than about a minute
+    counts as failed. Split the mask into several parts then.
+  - These models are refused: models with UVs, materials, explicit
+    normals or vertex colour (Polypaint). Work on a copy without
+    them if needed.
+
+
+7. When a run fails
+----------------------------------------------------------------
+
+A failed run shows "Check failed" and the path of a report file at
+the top. The model is put back as it was before the run and is not
+damaged. Common causes and fixes:
+
+  - "No usable mask": paint a mask first, and do not cover the
+    whole SubTool.
+  - The mask is too small or too narrow: make it larger, at least a
+    dozen or so faces.
+  - Where the mask border touches itself diagonally at one point,
+    the plug-in leaves the few faces around that point outside the
+    mask, unchanged, and rebuilds the rest. Usually nothing needs to
+    be done. If a run still fails because of it, adjust the mask so
+    its border is a simple closed loop.
+  - The regular layout fails: use the honeycomb layout.
+  - Repeated failures: send the report file (the file in C:\LQR
+    ending in _report.txt) to the plug-in author.

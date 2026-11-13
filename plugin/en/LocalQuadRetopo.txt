@@ -1,0 +1,703 @@
+// LocalQuadRetopo for ZBrush 2022 and 2025 (the installer sets IConfig to the target version)
+// Version 1.4.3. Both layouts check the mask first; a mask covering the whole SubTool is refused. Two run buttons (regular / honeycomb) instead of a switch. ZRemesher runs only for the regular layout and never on a self-crossing patch. Two layouts: regular (ZRemesher block + transition band) or honeycomb. Recommend button restores the mask; target 0 = automatic. Stage trace in C:/LQR/lqr_stage.txt; target slider 0-5000 in steps of 10, default 500.
+// English edition. All UI strings are plain ASCII.
+
+[IConfig, 2025]
+
+// -----------------------------------------------------------------------------
+// Global state (Top Level). Numeric vars by name, string vars by #name.
+// -----------------------------------------------------------------------------
+[VarDef, LQRVSTAT, 0]
+[VarDef, LQRTMP, 0]
+[VarDef, LQRN, 0]
+[VarDef, LQRI, 0]
+[VarDef, LQRHIT, 0]
+[VarDef, LQRBYTES, 0]
+[VarDef, LQRWAITLOOPS, 120]
+[VarDef, LQRKEEP, 0]
+[VarDef, LQRSUBCOUNT, 0]
+[VarDef, LQRBASEIDX, 0]
+[VarDef, LQRAREAFULL, 0]
+[VarDef, LQRAREAVIS, 0]
+[VarDef, LQRRATIO, 1]
+[VarDef, LQRMODE, 0]
+[VarDef, LQRTARGET, 0]
+[VarDef, LQRPHASE, 0]
+[VarDef, LQRSERIAL, 0]
+[VarDef, LQRPREFIX, ""]
+[VarDef, LQRORIG, -1]
+[VarDef, LQRWORK, -1]
+[VarDef, LQRTOOL, -1]
+[VarDef, LQRREADY, 0]
+[VarDef, LQRPIPE, ""]
+[VarDef, LQRSELECTION, ""]
+[VarDef, LQRRECOVERED, ""]
+[VarDef, LQRROUNDTRIP, ""]
+[VarDef, LQRSTATUS(256)]
+
+[VarDef, LQRDIR, ""]
+[VarDef, LQRBEFORE, ""]
+[VarDef, LQRAFTER, ""]
+[VarDef, LQRREPORT, ""]
+[VarDef, LQRLAUNCHER, "C:/LQR/LqrLaunch.exe"]
+[VarDef, LQRSETTINGS, ""]
+[VarDef, LQRSTAGE, 0]
+[VarDef, LQRSTAGEFILE, "C:/LQR/lqr_stage.txt"]
+[VarDef, LQRSTAGETXT, ""]
+[VarDef, LQRLINE, ""]
+[VarDef, LQRMSG, ""]
+[VarDef, LQRCMD, ""]
+// ---------------------------------------------------------------------------
+// English UI strings.
+// The ZScript compiler strips non-ASCII literals, so the .TXT must stay pure
+// ASCII; these vars carry the Chinese labels instead. VarDef defaults are
+// English so the UI stays CONSISTENT even if the top-level VarSet block
+// were ever skipped (creation and later IGet/ISet use the SAME var).
+// Mapping: see lqr_strings_map.txt next to this generator.
+// ---------------------------------------------------------------------------
+[VarDef, LQRCN2, ""]
+[VarDef, LQRCN3, ""]
+[VarDef, LQRCN4, ""]
+[VarDef, LQRCN15, ""]
+[VarDef, LQRCN16, ""]
+[VarDef, LQRCN20, ""]
+[VarDef, LQRCN22, ""]
+[VarDef, LQRCN23, ""]
+[VarDef, LQRCN24, ""]
+[VarDef, LQRCN25, "ZPlugin:Local Quad Retopo:Target K"]
+[VarDef, LQRCN45, ""]
+[VarDef, LQRCN51, ""]
+[VarDef, LQRCN71, "ZPlugin:Local Quad Retopo"]
+[VarDef, LQRCN88, ""]
+[VarDef, LQRCN100, "ZPlugin:Local Quad Retopo:RUN"]
+[VarDef, LQRCN110, "ZPlugin:Local Quad Retopo:RECOMMEND"]
+[VarDef, LQRCN120, "ZPlugin:Local Quad Retopo:REGULAR"]
+[VarDef, LQRCN121, ""]
+[VarDef, LQRGRID, 0]
+[VarDef, LQRWANT, 0]
+[VarDef, LQRCN122, ""]
+[VarDef, LQRRISK, 0]
+[VarDef, LQRQUIET, 0]
+[VarDef, LQRAUTO, 0]
+[VarDef, LQRJOBMODE, 0]
+[VarDef, LQRJOBT, 0]
+[VarDef, LQRCN111, ""]
+[VarDef, LQRCN112, ""]
+[VarDef, LQRDIGIT, 0]
+[VarDef, LQRRECN, 0]
+[VarDef, LQRCN101, ""]
+[VarDef, LQRCN104, "ZPlugin:Local Quad Retopo:Rollback"]
+[VarDef, LQRCN105, ""]
+
+// --- runtime construction (executed at plugin load, verified on 2025.0.1) ---
+[VarSet, LQRCN2, "Select an editable polygon mesh first."]
+[VarSet, LQRCN3, "Missing "]
+[VarSet, LQRCN4, " required ZBrush features. Stopped."]
+[VarSet, LQRCN15, "Check failed. Report: "]
+[VarSet, LQRCN16, "The checker did not respond. The original model was kept."]
+[VarSet, LQRCN20, "This Tool has no earlier model to go back to."]
+[VarSet, LQRCN22, "Press T for Edit mode and select a PolyMesh3D SubTool first."]
+[VarSet, LQRCN23, "ZRemesher is unavailable. Switch to the lowest subdivision level."]
+[VarSet, LQRCN24, "The current SubTool is not a valid PolyMesh3D (zero surface area)."]
+[VarSet, LQRCN25, "ZPlugin:Local Quad Retopo:Target Faces - 0 Auto"]
+[VarSet, LQRCN45, "No usable mask: draw a mask that covers part, not all, of the SubTool."]
+[VarSet, LQRCN51, "FreezeBorder was not found, so the patch cannot be welded in place. Stopped."]
+[VarSet, LQRCN71, "ZPlugin:Local Quad Retopo"]
+[VarSet, LQRCN88, "0 follows the density around the mask. Enter 100 or more to set a face target. The final count depends on the border and face shapes."]
+[VarSet, LQRCN120, "ZPlugin:Local Quad Retopo:Retopo Mask - Honeycomb"]
+[VarSet, LQRCN121, "Rebuilds the masked area as even honeycomb-style quads. Does not use ZRemesher; the fastest and most reliable layout."]
+[VarSet, LQRCN122, "The masked area passes through itself a lot, so the honeycomb layout was used."]
+[VarSet, LQRCN110, "ZPlugin:Local Quad Retopo:Recommend Faces"]
+[VarSet, LQRCN111, "After drawing the mask, click here: works out a face target from the density around the mask and puts it in the slider."]
+[VarSet, LQRCN112, "Recommended face target: "]
+[VarSet, LQRCN100, "ZPlugin:Local Quad Retopo:Retopo Mask - Regular"]
+[VarSet, LQRCN101, "Draw the mask with Ctrl, then click here: keeps the regular quads of ZRemesher with a ring of transition faces at the border. Uses the honeycomb layout when that fails."]
+[VarSet, LQRCN104, "ZPlugin:Local Quad Retopo:Back to Original"]
+[VarSet, LQRCN105, "Switches back to the SubTool from before the last run on this Tool."]
+
+
+// -----------------------------------------------------------------------------
+// Installed worker and geometry exports use the same short directory.
+[RoutineDef, LQREnsurePaths,
+  [VarSet, LQRDIR, "C:/LQR/"]
+  [VarSet, LQRLAUNCHER, "C:/LQR/LqrLaunch.exe"]
+]
+
+// Stage trace. Overwrites one small file so a crash leaves the last
+// completed step on disk. Uses the block name and command order that ran
+// live in 1.3.2.
+[RoutineDef, LQRMark,
+  [VarSet, LQRSTAGETXT, [StrMerge, "LQR_STAGE ", LQRSTAGE, " phase ", LQRPHASE, " vstat ", LQRVSTAT, " ", #LQRPREFIX]]
+  [MemDelete, LQRBAT]
+  [MemCreate, LQRBAT, 4096, 0]
+  [VarSet, LQRBYTES, [MemWriteString, LQRBAT, #LQRSTAGETXT, 0]]
+  [VarSet, LQRBYTES, (LQRBYTES - 1)]
+  [MemResize, LQRBAT, LQRBYTES]
+  [MemSaveToFile, LQRBAT, #LQRSTAGEFILE, 1]
+  [MemDelete, LQRBAT]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: abort cleanly. Caller must set LQRMSG first.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRFail,
+  [NoteBar, ""]
+  [IShowActions, -1]
+  [NoteBar, #LQRMSG, 0]
+  [Exit]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: verify every ZBrush 2025 UI item path used below exists.
+// Critical ZRemesher switches accept both flat and nested path variants.
+// IMPORTANT (verified on 2025.0.1): Tool:* items only exist while a
+// PolyMesh3D is loaded in Edit mode. Without one, IExists returns 0 for all
+// of them and a naive check would report ~15 false "missing path" errors.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRSelfCheck,
+  [VarSet, LQRTMP, [GetPolyMesh3DArea]]
+  [If, (LQRTMP <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN2, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRN, 0]
+  [If, [IExists, "Transform:Edit"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:Clear"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:GrowMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:ShrinkMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Masking:BlurMask"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Visibility:HidePt"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Visibility:ShowPt"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:SubTool:Duplicate"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Import"], , [VarInc, LQRN]]
+  [If, [IExists, "Tool:Export"], , [VarInc, LQRN]]
+  // ZRemesher button: flat path is what ZBrush 2025 macros record.
+  [If, [IExists, "Tool:Geometry:ZRemesher"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:ZRemesher"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  // FreezeBorder: accept flat or ZRemesher-subpalette nested path.
+  [If, [IExists, "Tool:Geometry:FreezeBorder"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:FreezeBorder"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:Target Polygons Count"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:Target Polygons Count"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:AdaptiveSize"],
+    ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:AdaptiveSize"],
+      ,
+      [VarInc, LQRN]
+    ]
+  ]
+  [If, (LQRN > 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN3, LQRN, #LQRCN4]]
+    [RoutineCall, LQRFail]
+  ]
+]
+
+// -----------------------------------------------------------------------------
+// Snapshot visibility by list position. Duplicate SubTools can share an ID.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRSnap,
+  [VarSet, LQRSUBCOUNT, [SubToolGetCount]]
+  [If, (LQRSUBCOUNT > 256), [VarSet, LQRSUBCOUNT, 256]]
+  [VarSet, LQRI, 0]
+  [If, (LQRSUBCOUNT > 0),
+    [Loop, LQRSUBCOUNT,
+      [VarSet, LQRSTATUS(LQRI), [SubToolGetStatus, LQRI]]
+      [VarInc, LQRI]
+    ]
+  ]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: show ONLY the SubTool whose index is in LQRKEEP.
+// OBJ export writes all VISIBLE SubTools into one file, so other SubTools must
+// be hidden or the validator would see duplicated / overlapping geometry.
+// Status bit 0x01 = SubTool eye.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRHideOthers,
+  [VarSet, LQRN, [SubToolGetCount]]
+  [VarSet, LQRI, 0]
+  [If, (LQRN > 0),
+    [Loop, LQRN,
+      [VarSet, LQRTMP, [SubToolGetStatus, LQRI]]
+      [If, (LQRI = LQRKEEP),
+        [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRI, (LQRTMP + 1)]]
+      ,
+        [If, ((LQRTMP & 1) = 1), [SubToolSetStatus, LQRI, (LQRTMP - 1)]]
+      ]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IUpdate, 1, 1]
+]
+
+// -----------------------------------------------------------------------------
+// ROUTINE: restore the visibility state captured by LQRSnap.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRRestoreVis,
+  [VarSet, LQRI, 0]
+  [If, (LQRSUBCOUNT > 0),
+    [Loop, LQRSUBCOUNT,
+      [VarSet, LQRTMP, LQRI]
+      [If, ((LQRREADY = 1) * (LQRI >= LQRWORK)), [VarInc, LQRTMP]]
+      [SubToolSetStatus, LQRTMP, LQRSTATUS(LQRI)]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IUpdate, 1, 1]
+]
+
+// -----------------------------------------------------------------------------
+// Run the worker. 1 = PASS  2 = FAIL  3 = unavailable  4 = import candidate.
+[RoutineDef, LQRValidate,
+  [RoutineCall, LQREnsurePaths]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [VarSet, LQRVSTAT, 3]
+  [VarSet, LQRHIT, [StrFind, " ", #LQRDIR]]
+  [If, ((LQRHIT < 0) * [FileExists, #LQRLAUNCHER] * [FileExists, #LQRAFTER]),
+    [If, [FileExists, #LQRREPORT], [FileDelete, #LQRREPORT]]
+    [VarSet, LQRSTAGE, 8] [RoutineCall, LQRMark]
+    [ShellExecute, #LQRLAUNCHER]
+    [VarSet, LQRSTAGE, 9] [RoutineCall, LQRMark]
+    [Loop, LQRWAITLOOPS,
+      [If, [FileExists, #LQRREPORT], [LoopExit], [Delay, 0.5]]
+    ]
+    [If, [FileExists, #LQRREPORT],
+      [VarSet, LQRLINE, ""]
+      [MemDelete, LQRREP]
+      [MemCreateFromFile, LQRREP, #LQRREPORT]
+      [MemReadString, LQRREP, LQRLINE, 0, 1]
+      [MemDelete, LQRREP]
+      [If, ([StrFind, "LQR_STATUS:PASS", #LQRLINE] = 0), [VarSet, LQRVSTAT, 1]]
+      [If, ([StrFind, "LQR_STATUS:FAIL", #LQRLINE] = 0), [VarSet, LQRVSTAT, 2]]
+      [If, ([StrFind, "LQR_STATUS:IMPORT", #LQRLINE] = 0), [VarSet, LQRVSTAT, 4]]
+    ]
+    [VarSet, LQRSTAGE, 10] [RoutineCall, LQRMark]
+  ]
+]
+
+[RoutineDef, LQRShowStatus,
+  [If, (LQRVSTAT = 2), [NoteBar, [StrMerge, #LQRCN15, " ", #LQRREPORT], 0]]
+  [If, (LQRVSTAT = 3), [NoteBar, #LQRCN16, 0]]
+]
+
+// Change only the eye bit. Folder and Boolean settings stay intact.
+[RoutineDef, LQREyeOff,
+  [VarSet, LQRTMP, [SubToolGetStatus, LQRKEEP]]
+  [If, ((LQRTMP & 1) = 1), [SubToolSetStatus, LQRKEEP, (LQRTMP - 1)]]
+]
+
+[RoutineDef, LQRRollback,
+  [If, ((LQRREADY = 1) * ([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1))),
+    [RoutineCall, LQRRestoreVis]
+    [VarSet, LQRKEEP, LQRWORK]
+    [RoutineCall, LQREyeOff]
+    [SubToolSelect, LQRORIG]
+    [VarSet, LQRREADY, 0]
+    [IUpdate, 1, 1]
+  ,
+    [NoteBar, #LQRCN20, 0]
+  ]
+]
+
+[RoutineDef, LQRShowOriginal,
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQREyeOff]
+  [SubToolSelect, LQRORIG]
+  [IUpdate, 1, 1]
+]
+
+[RoutineDef, LQRShowResult,
+  [SubToolSelect, LQRWORK]
+  [VarSet, LQRTMP, [SubToolGetStatus, LQRWORK]]
+  [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRWORK, (LQRTMP + 1)]]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+  [IUpdate, 1, 1]
+]
+
+// Recovered output is applied only to the working duplicate.
+[RoutineDef, LQRApplyRecovery,
+  [VarSet, LQRVSTAT, 3]
+  [If, (([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1)) * [FileExists, #LQRRECOVERED]),
+    [SubToolSelect, LQRWORK]
+    [VarSet, LQRTMP, [SubToolGetStatus, LQRWORK]]
+    [If, ((LQRTMP & 1) = 0), [SubToolSetStatus, LQRWORK, (LQRTMP + 1)]]
+    [If, [IExists, "Tool:Import:Tri2Quad"], [ISet, "Tool:Import:Tri2Quad", 0]]
+    [FileNameSetNext, #LQRRECOVERED]
+    [IPress, "Tool:Import"]
+    [IUpdate, 2, 1]
+    [VarSet, LQRSTAGE, 11] [RoutineCall, LQRMark]
+    [If, (([ToolGetActiveIndex] = LQRTOOL) * ([SubToolGetCount] = (LQRSUBCOUNT + 1)) * ([SubToolGetActiveIndex] = LQRWORK)),
+      [VarSet, LQRKEEP, LQRWORK]
+      [RoutineCall, LQRHideOthers]
+      [FileNameSetNext, #LQRROUNDTRIP]
+      [IPress, "Tool:Export"]
+      [VarSet, LQRSTAGE, 12] [RoutineCall, LQRMark]
+      [RoutineCall, LQRShowOriginal]
+      [If, [FileExists, #LQRROUNDTRIP],
+        [VarSet, LQRPHASE, 2]
+        [RoutineCall, LQRValidate]
+      ]
+    ,
+      [ToolSelect, LQRTOOL]
+    ]
+  ]
+]
+
+// ROUTINE: MAIN ENTRY POINT
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// ROUTINE: suggest a face target for the masked area and put it in the slider.
+// Exports the whole mesh and the masked part, then asks the worker (mode 3).
+// Nothing is duplicated or remeshed; the mask itself is left as painted.
+// -----------------------------------------------------------------------------
+[RoutineDef, LQRRecommend,
+  [IShowActions, 0]
+  [NoteBar, ""]
+  [VarSet, LQRREADY, 0]
+  [VarSet, LQRVSTAT, 0]
+  [VarSet, LQRPHASE, 0]
+  [VarSet, LQRN, [IGet, "Transform:Edit"]]
+  [If, (LQRN = 1),
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN22, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRAREAFULL, [GetPolyMesh3DArea]]
+  [If, (LQRAREAFULL <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN24, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [RoutineCall, LQREnsurePaths]
+  [VarSet, LQRBASEIDX, [SubToolGetActiveIndex]]
+  [If, ([SubToolGetCount] > 256),
+    [VarSet, LQRMSG, "Too many SubTools for the visibility snapshot."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [If, ([FileExists, #LQRPIPE] * [FileExists, #LQRLAUNCHER]), ,
+    [VarSet, LQRMSG, "LocalQuadRetopo background files are missing. Re-run INSTALL.bat."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRSTAGE, 21] [RoutineCall, LQRMark]
+  [RoutineCall, LQRSnap]
+  [VarInc, LQRSERIAL]
+  // Mode 3 asks the worker for a recommendation only.
+  [VarSet, LQRPREFIX, [StrMerge, "lqr", [ZBrushInfo, 7], "_", [ZBrushInfo, 2], "_", LQRSERIAL, "_1_3_0.5_"]]
+  [VarSet, LQRBEFORE, [StrMerge, #LQRDIR, #LQRPREFIX, "before.obj"]]
+  [VarSet, LQRAFTER, [StrMerge, #LQRDIR, #LQRPREFIX, "after.obj"]]
+  [VarSet, LQRREPORT, [StrMerge, #LQRDIR, #LQRPREFIX, "report.txt"]]
+  [VarSet, LQRKEEP, LQRBASEIDX]
+  [RoutineCall, LQRHideOthers]
+  [If, [IExists, "Tool:Export:QUD"], [ISet, "Tool:Export:QUD", 1]]
+  [If, [IExists, "Tool:Export:TRI"], [ISet, "Tool:Export:TRI", 0]]
+  [If, [IExists, "Tool:Export:MRG"], [ISet, "Tool:Export:MRG", 0]]
+  [If, [IExists, "Tool:Export:GRP"], [ISet, "Tool:Export:GRP", 0]]
+  [If, [FileExists, #LQRBEFORE], [FileDelete, #LQRBEFORE]]
+  [FileNameSetNext, #LQRBEFORE]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 22] [RoutineCall, LQRMark]
+  // HidePt hides the unmasked polygons and keeps the mask.
+  [IPress, "Tool:Visibility:HidePt"]
+  [IUpdate, 2, 1]
+  [VarSet, LQRAREAVIS, [GetPolyMesh3DArea]]
+  [If, ((LQRAREAVIS <= 0) + (LQRAREAVIS >= (LQRAREAFULL * 0.999))),
+    [IPress, "Tool:Visibility:ShowPt"]
+    [RoutineCall, LQRRestoreVis]
+    [VarSet, LQRMSG, [StrMerge, #LQRCN45, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [If, [FileExists, #LQRAFTER], [FileDelete, #LQRAFTER]]
+  [FileNameSetNext, #LQRAFTER]
+  [IPress, "Tool:Export"]
+  // HidePt drops the mask. Only the masked part is visible now, so masking
+  // everything visible before showing the rest puts the mask back.
+  [If, [IExists, "Tool:Masking:MaskAll"], [IPress, "Tool:Masking:MaskAll"]]
+  [IPress, "Tool:Visibility:ShowPt"]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRSTAGE, 23] [RoutineCall, LQRMark]
+  [VarSet, LQRLINE, ""]
+  [RoutineCall, LQRValidate]
+  [VarSet, LQRRECN, 0]
+  [VarSet, LQRRISK, 0]
+  [If, ([StrFind, "LQR_STATUS:RECOMMEND", #LQRLINE] = 0),
+    // "R1" after the count: the masked surface passes through itself.
+    [If, (([StrToAsc, #LQRLINE, 28] - 48) = 1), [VarSet, LQRRISK, 1]]
+    // The count is five digits starting at character 21.
+    [VarSet, LQRI, 21]
+    [Loop, 5,
+      [VarSet, LQRDIGIT, ([StrToAsc, #LQRLINE, LQRI] - 48)]
+      [If, ((LQRDIGIT >= 0) * (LQRDIGIT <= 9)), [VarSet, LQRRECN, ((LQRRECN * 10) + LQRDIGIT)]]
+      [VarInc, LQRI]
+    ]
+  ]
+  [IShowActions, -1]
+  [If, (LQRQUIET = 1), ,
+    [If, (LQRRECN > 0),
+      [ISet, #LQRCN25, LQRRECN]
+      [NoteBar, [StrMerge, #LQRCN112, LQRRECN], 0]
+    ,
+      [NoteBar, [StrMerge, #LQRCN15, " ", #LQRREPORT], 0]
+    ]
+  ]
+  [VarSet, LQRQUIET, 0]
+  [VarSet, LQRSTAGE, 24] [RoutineCall, LQRMark]
+]
+
+[RoutineDef, LQRRun,
+  [IShowActions, 0]
+  [NoteBar, ""]
+  [VarSet, LQRREADY, 0]
+  [VarSet, LQRVSTAT, 0]
+  [VarSet, LQRPHASE, 1]
+
+  // ---- (A) Parameter validation ------------------------------------------
+  [VarSet, LQRN, [IGet, "Transform:Edit"]]
+  [If, (LQRN = 1),
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN22, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [If, [IsEnabled, "Tool:Geometry:ZRemesher"],
+    ,
+    [VarSet, LQRMSG, [StrMerge, #LQRCN23, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRAREAFULL, [GetPolyMesh3DArea]]
+  [If, (LQRAREAFULL <= 0),
+    [VarSet, LQRMSG, [StrMerge, #LQRCN24, ""]]
+    [RoutineCall, LQRFail]
+  ]
+  // Zero uses the default native target and automatic recovery density.
+  // A positive value is entered as faces.
+  [VarSet, LQRN, [IGet, #LQRCN25]]
+  [VarSet, LQRGRID, LQRWANT]
+  [VarSet, LQRAUTO, 0]
+  // Both layouts first run the Recommend check. It stops the run when no
+  // mask is drawn or the mask covers the whole SubTool (the honeycomb layout
+  // once took a whole SubTool on ZBrush 2022), leaves a solid mask on exactly
+  // the region it measured, and reports whether the masked surface passes
+  // through itself. The regular layout also takes its automatic target from
+  // it; the slider goes back to 0 when the run ends. A self-crossing mask
+  // leaves ZRemesher out and the honeycomb layout is used.
+  [VarSet, LQRQUIET, 1]
+  [If, ((LQRGRID = 1) * (LQRN < 0.5)), [VarSet, LQRAUTO, 1] [VarSet, LQRQUIET, 0]]
+  [RoutineCall, LQRRecommend]
+  [If, (LQRGRID = 1),
+    [IShowActions, 0]
+    [NoteBar, ""]
+    [VarSet, LQRREADY, 0]
+    [VarSet, LQRVSTAT, 0]
+    [VarSet, LQRPHASE, 1]
+    [VarSet, LQRN, [IGet, #LQRCN25]]
+    [If, (LQRRISK = 1), [VarSet, LQRGRID, 0]]
+  ]
+  [VarSet, LQRMODE, 2]
+  [VarSet, LQRTARGET, 0.699]
+  [If, (LQRN > 0.5),
+    [VarSet, LQRMODE, 0]
+    [If, (LQRN < 100), [VarSet, LQRN, 100]]
+    [VarSet, LQRTARGET, (LQRN / 1000)]
+  ]
+  // Job settings read by the worker: mode 1 asks for the regular layout,
+  // and a target of 0.09 there means automatic.
+  [VarSet, LQRJOBMODE, LQRMODE]
+  [VarSet, LQRJOBT, LQRTARGET]
+  [If, (LQRGRID = 1),
+    [If, (LQRMODE = 2), [VarSet, LQRJOBT, 0.09]]
+    [VarSet, LQRJOBMODE, 1]
+  ]
+  [RoutineCall, LQREnsurePaths]
+
+  [RoutineCall, LQRSelfCheck]
+
+  // ---- (B) Identify the target and snapshot visibility --------------------
+  [VarSet, LQRBASEIDX, [SubToolGetActiveIndex]]
+  [VarSet, LQRTOOL, [ToolGetActiveIndex]]
+  [If, ([SubToolGetCount] > 256),
+    [VarSet, LQRMSG, "Too many SubTools for the visibility snapshot."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRPIPE, [StrMerge, #LQRDIR, "lqr_run_pipeline.py"]]
+  [If, ([FileExists, #LQRPIPE] * [FileExists, #LQRLAUNCHER]), ,
+    [VarSet, LQRMSG, "LocalQuadRetopo background files are missing. Re-run INSTALL.bat."]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRSTAGE, 1] [RoutineCall, LQRMark]
+  [RoutineCall, LQRSnap]
+  [VarInc, LQRSERIAL]
+  [VarSet, LQRSETTINGS, [StrMerge, LQRRATIO, "_", LQRJOBMODE, "_", LQRJOBT, "_"]]
+  [VarSet, LQRPREFIX, [StrMerge, "lqr", [ZBrushInfo, 7], "_", [ZBrushInfo, 2], "_", LQRSERIAL, "_", #LQRSETTINGS]]
+  [VarSet, LQRBEFORE, [StrMerge, #LQRDIR, #LQRPREFIX, "before.obj"]]
+  [VarSet, LQRAFTER, [StrMerge, #LQRDIR, #LQRPREFIX, "after.obj"]]
+  [VarSet, LQRREPORT, [StrMerge, #LQRDIR, #LQRPREFIX, "report.txt"]]
+  [VarSet, LQRSELECTION, [StrMerge, #LQRDIR, #LQRPREFIX, "selection.obj"]]
+  [VarSet, LQRRECOVERED, [StrMerge, #LQRDIR, #LQRPREFIX, "recovered.obj"]]
+  [VarSet, LQRROUNDTRIP, [StrMerge, #LQRDIR, #LQRPREFIX, "roundtrip.obj"]]
+  [If, [FileExists, #LQRSELECTION], [FileDelete, #LQRSELECTION]]
+  [If, [FileExists, #LQRRECOVERED], [FileDelete, #LQRRECOVERED]]
+  [If, [FileExists, #LQRROUNDTRIP], [FileDelete, #LQRROUNDTRIP]]
+
+  // ---- (C) Export the ORIGINAL mesh for the locality comparison -----------
+  [VarSet, LQRN, [StrLength, #LQRBEFORE]]
+  [If, (LQRN > 0),
+    [VarSet, LQRKEEP, LQRBASEIDX]
+    [RoutineCall, LQRHideOthers]
+    [If, [FileExists, #LQRBEFORE], [FileDelete, #LQRBEFORE]]
+    // Best-effort export switches. Verified on 2025.0.1: only MRG is
+    // addressable via IExists here; QUD/TRI/GRP are silently skipped.
+    // OBJ export is quad-only by default in this build (24576/24576 quads
+    // measured), and lqr_validate.py re-checks every exported face anyway.
+    [If, [IExists, "Tool:Export:QUD"], [ISet, "Tool:Export:QUD", 1]]
+    [If, [IExists, "Tool:Export:TRI"], [ISet, "Tool:Export:TRI", 0]]
+    [If, [IExists, "Tool:Export:MRG"], [ISet, "Tool:Export:MRG", 0]]
+    [If, [IExists, "Tool:Export:GRP"], [ISet, "Tool:Export:GRP", 0]]
+    [FileNameSetNext, #LQRBEFORE]
+    [IPress, "Tool:Export"]
+    [RoutineCall, LQRRestoreVis]
+  ]
+  [VarSet, LQRSTAGE, 2] [RoutineCall, LQRMark]
+
+  // Make a working duplicate. The original remains available for rollback.
+  [IPress, "Tool:SubTool:Duplicate"]
+  // Duplicate inserts directly below the source, regardless of selection.
+  [If, ([SubToolGetCount] = (LQRSUBCOUNT + 1)),
+    [VarSet, LQRORIG, LQRBASEIDX]
+    [VarSet, LQRWORK, (LQRBASEIDX + 1)]
+    [SubToolSelect, LQRWORK]
+  ,
+    [VarSet, LQRMSG, "Could not create the working duplicate."]
+    [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+    [RoutineCall, LQRFail]
+  ]
+  [VarSet, LQRREADY, 1]
+  [VarSet, LQRSTAGE, 3] [RoutineCall, LQRMark]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+
+  // Use the same mask refinement as the verified defaults.
+  [Loop, 3, [IPress, "Tool:Masking:GrowMask"]]
+  [Loop, 3, [IPress, "Tool:Masking:ShrinkMask"]]
+  [Loop, 2, [IPress, "Tool:Masking:BlurMask"]]
+
+  // ---- (H) Convert mask -> visibility. HidePt hides the UNMASKED polygons,
+  //         so exactly the brush-covered region stays visible. --------------
+  [IPress, "Tool:Visibility:HidePt"]
+  [IPress, "Tool:Masking:Clear"]
+  [IUpdate, 2, 1]
+
+  // Check that ZBrush shows part, but not all, of the surface.
+  [VarSet, LQRAREAVIS, [GetPolyMesh3DArea]]
+  [If, ((LQRAREAVIS <= 0) + (LQRAREAVIS >= (LQRAREAFULL * 0.999))),
+    [IPress, "Tool:Visibility:ShowPt"]
+    [VarSet, LQRMSG, [StrMerge, #LQRCN45, ""]]
+    [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+    [RoutineCall, LQRFail]
+  ]
+  // Capture the actual mask scope before changing any topology.
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQRHideOthers]
+  [FileNameSetNext, #LQRSELECTION]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 4] [RoutineCall, LQRMark]
+  [RoutineCall, LQRRestoreVis]
+  [VarSet, LQRKEEP, LQRORIG]
+  [RoutineCall, LQREyeOff]
+
+  // The honeycomb layout is built from the source surface alone, so
+  // ZRemesher is not run for it at all.
+  [If, (LQRGRID = 1),
+  // ---- (I) Configure ZRemesher. FreezeBorder is MANDATORY: it preserves the
+  //         border vertices and welds the quad patch back. ------------------
+  [If, [IExists, "Tool:Geometry:FreezeBorder"],
+    [ISet, "Tool:Geometry:FreezeBorder", 1]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:FreezeBorder"],
+      [ISet, "Tool:Geometry:ZRemesher:FreezeBorder", 1]
+    ,
+      [VarSet, LQRMSG, [StrMerge, #LQRCN51, ""]]
+      [If, (LQRREADY = 1), [RoutineCall, LQRRollback]]
+      [RoutineCall, LQRFail]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:FreezeGroups"], [ISet, "Tool:Geometry:FreezeGroups", 0]]
+  [If, [IExists, "Tool:Geometry:KeepGroups"],
+    [ISet, "Tool:Geometry:KeepGroups", 0]
+  ]
+  [If, [IExists, "Tool:Geometry:SmoothGroups"],
+    [ISet, "Tool:Geometry:SmoothGroups", 1]
+  ]
+  [If, [IExists, "Tool:Geometry:DetectEdges"], [ISet, "Tool:Geometry:DetectEdges", 0]]
+  [If, [IExists, "Tool:Geometry:AdaptiveSize"],
+    [ISet, "Tool:Geometry:AdaptiveSize", 10]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:AdaptiveSize"],
+      [ISet, "Tool:Geometry:ZRemesher:AdaptiveSize", 10]
+    ]
+  ]
+  [If, [IExists, "Tool:Geometry:Target Polygons Count"],
+    [ISet, "Tool:Geometry:Target Polygons Count", LQRTARGET]
+  ,
+    [If, [IExists, "Tool:Geometry:ZRemesher:Target Polygons Count"],
+      [ISet, "Tool:Geometry:ZRemesher:Target Polygons Count", LQRTARGET]
+    ]
+  ]
+
+  // ---- (J) Partial Mesh ZRemesher ----------------------------------------
+  // ZBrush remeshes ONLY visible polygons, keeps hidden topology untouched,
+  // welds with FreezeBorder and makes the whole model visible again.
+  [IPress, "Tool:Geometry:ZRemesher"]
+  [IUpdate, 3, 1]
+  ]
+  [IPress, "Tool:Visibility:ShowPt"]
+  [VarSet, LQRSTAGE, 5] [RoutineCall, LQRMark]
+
+  // Export the native candidate before deciding whether to apply recovery.
+  [SubToolSelect, LQRWORK]
+  [VarSet, LQRKEEP, LQRWORK]
+  [RoutineCall, LQRHideOthers]
+  [If, [FileExists, #LQRAFTER], [FileDelete, #LQRAFTER]]
+  [FileNameSetNext, #LQRAFTER]
+  [IPress, "Tool:Export"]
+  [VarSet, LQRSTAGE, 6] [RoutineCall, LQRMark]
+  [RoutineCall, LQRShowOriginal]
+  [VarSet, LQRSTAGE, 7] [RoutineCall, LQRMark]
+
+  [VarSet, LQRPHASE, 1]
+  [RoutineCall, LQRValidate]
+  [If, (LQRVSTAT = 4), [RoutineCall, LQRApplyRecovery]]
+  [If, (LQRVSTAT = 1), [RoutineCall, LQRShowResult], [RoutineCall, LQRRollback]]
+  [VarSet, LQRSTAGE, 13] [RoutineCall, LQRMark]
+  [If, (LQRAUTO = 1), [ISet, #LQRCN25, 0]]
+  [IShowActions, -1]
+  [RoutineCall, LQRShowStatus]
+  // Say why the regular layout was not used, when the run itself succeeded.
+  [If, ((LQRWANT = 1) * (LQRRISK = 1) * (LQRVSTAT = 1)), [NoteBar, #LQRCN122, 0]]
+  [VarSet, LQRSTAGE, 14] [RoutineCall, LQRMark]
+]
+
+// -----------------------------------------------------------------------------
+// Compact panel. The mask is drawn with ZBrush's native masking controls.
+[ISubPalette, #LQRCN71]
+[ISlider, #LQRCN25, 0, 10, 0, 5000, #LQRCN88, , , 0]
+[IButton, #LQRCN110, #LQRCN111, [RoutineCall, LQRRecommend], 0, 1]
+[IButton, #LQRCN100, #LQRCN101, [VarSet, LQRWANT, 1] [RoutineCall, LQRRun], 0, 1]
+[IButton, #LQRCN120, #LQRCN121, [VarSet, LQRWANT, 0] [RoutineCall, LQRRun], 0, 1]
+[IButton, #LQRCN104, #LQRCN105, [RoutineCall, LQRRollback], 0, 1]
