@@ -1,5 +1,5 @@
 ﻿================================================================
-  Local Quad Retopo (LocalQuadRetopo) - README       Version 1.4.3
+  Local Quad Retopo (LocalQuadRetopo) - README       Version 1.4.4
 ================================================================
 
 This file covers installing, uninstalling and installation
@@ -63,7 +63,7 @@ mirror servers automatically.
        After one installation this folder is listed automatically.
   4. If needed, the installer downloads Python (see section 2).
   5. When the window ends with the green line
-         Installed: Local Quad Retopo 1.4.3
+         Installed: Local Quad Retopo 1.4.4
      the installation succeeded. Press any key to close it.
      If a yellow note below it says the panel must be loaded once by
      hand: start ZBrush, choose Zscript > Load and pick the
@@ -165,6 +165,9 @@ If you delete them by mistake, run INSTALL.bat again to restore them.
                            without a command window
   lqr_run_pipeline.py      entry point of the calculation
   lqr_recover.py           main retopology steps
+  lqr_local.py             large meshes: work near the mask only
+  lqr_mrgb.py              keeps Polypaint and the mask
+  grid_continue.py         continues a regular surrounding grid
   lqr_validate.py          result checks
   recovery_geometry.py     quad pairing and refinement
   patch_remesh.py          honeycomb layout
