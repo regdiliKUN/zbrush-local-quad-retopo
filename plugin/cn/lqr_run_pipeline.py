@@ -50,7 +50,7 @@ def publish(path, text):
 
 def write_failure(native_report, reason):
     details = native_report.splitlines()[1:]
-    publish(REPORT, "LQR_STATUS:FAIL\nLocalQuadRetopo 1.4.3\n"
+    publish(REPORT, "LQR_STATUS:FAIL\nLocalQuadRetopo 1.4.4\n"
             + "[FAIL] " + reason + "\n" + "\n".join(details) + "\n")
 
 
@@ -73,6 +73,20 @@ def verify_roundtrip(vertices, faces, imported_vertices, imported_faces):
     if exact_signature(ids, faces) != exact_signature(source_index, imported_faces):
         raise ValueError("ZBrush round trip altered winding or face layout")
     return source_index
+
+
+def polypaint_note(written, reexported, vertex_map):
+    """Report line on the polypaint of the result after ZBrush's import."""
+    import lqr_mrgb
+
+    def values(path, count):
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                return lqr_mrgb.parse((row for row in handle if row.startswith("#MRGB")), count)
+        except ValueError:
+            return None
+    expected = values(written, max(vertex_map) + 1 if len(vertex_map) else 0)
+    return lqr_mrgb.roundtrip_note(expected, values(reexported, len(vertex_map)), vertex_map)
 
 
 def recovery_scope(report):
@@ -220,10 +234,12 @@ def run(args):
                                                       "inherited_folds": folds})
             publish(stage, "LQR_STATUS:PASS\nExact round-trip patch and shared boundary verified.\n"
                     + str(report["info"]) + "\n")
+            note = polypaint_note(RECOVERED, ROUNDTRIP, list(vertex_map))
             # Keep ZRemesher's own output for later inspection.
             os.replace(AFTER, artifact("native.obj"))
             os.replace(ROUNDTRIP, AFTER)
-            publish(REPORT, "LQR_STATUS:PASS\nLocalQuadRetopo 1.4.3 - recovered and checked after ZBrush re-export\n"
+            publish(REPORT, "LQR_STATUS:PASS\nLocalQuadRetopo 1.4.4 - recovered and checked after ZBrush re-export\n"
+                    + (note + "\n" if note else "")
                     + "\n".join(recovered_report.splitlines()[1:]) + "\n")
         except (OSError, ValueError, ImportError, IndexError) as exc:
             write_failure(native, f"Recovery could not be applied: {exc}")
@@ -310,12 +326,35 @@ def run(args):
         if output_extreme > source_extreme:
             raise ValueError("Recovery increased the number of extremely narrow faces")
         publish(artifact("recovered_report.txt"), detail)
-        publish(REPORT, "LQR_STATUS:IMPORT\nLocalQuadRetopo 1.4.3\n"
+        publish(REPORT, "LQR_STATUS:IMPORT\nLocalQuadRetopo 1.4.4\n"
                 "Recovered patch passed offline validation. Pending ZBrush import check.\n")
     except ImportError:
         write_failure(native, "Recovery requires NumPy and SciPy in the configured Python interpreter")
     except (ValueError, OSError, IndexError) as exc:
         write_failure(native, f"Automatic recovery rejected this candidate: {exc}")
+
+
+# Above this many faces the work is cut down to the masked area and a band
+# around it (lqr_local.py); below it the whole SubTool is checked directly.
+LOCAL_FACES = int(os.environ.get("LQR_LOCAL_FACES", "150000"))
+MAX_FACES = 40000000
+
+
+class _ThisModule:
+    """Live view of this module's globals (PREFIX and the paths change)."""
+
+    def __getattr__(self, name):
+        return globals()[name]
+
+
+def face_count(path):
+    """Count face lines without parsing the OBJ."""
+    count = 0
+    with open(path, "rb") as handle:
+        for line in handle:
+            if line[:2] == b"f ":
+                count += 1
+    return count
 
 
 def main():
@@ -335,7 +374,17 @@ def main():
     try:
         if not BEFORE.is_file() or not AFTER.is_file():
             raise ValueError("A current before and after OBJ export is required")
-        run(args)
+        faces = face_count(BEFORE)
+        if faces > MAX_FACES:
+            raise ValueError(
+                f"This SubTool has {faces} faces; the plug-in handles up to {MAX_FACES}. "
+                "Go to a lower subdivision level, or split the area to work on into its own SubTool, "
+                "then run again.")
+        if faces > LOCAL_FACES:
+            import lqr_local
+            lqr_local.run(args, _ThisModule())
+        else:
+            run(args)
     except (OSError, ValueError, IndexError) as exc:
         write_failure("", str(exc))
 

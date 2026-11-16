@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import sys
 
+import lqr_mrgb
 import lqr_validate as validation
 from recovery_geometry import (coarsen, directed, edge, midpoint, parity_quads,
                                polygon_triangles, quadrangulate, refine_quads, split_triangles_on_edge,
@@ -112,10 +113,12 @@ def seam_geometry(vertices, faces):
 
 
 def source_records(path, face_lines):
+    """Vertex lines, group line of each face and polypaint values (or None)."""
     rows = path.read_text(encoding="utf-8-sig").splitlines()
-    if any(row.lstrip().startswith(("#MRGB", "vt ", "vn ", "usemtl ", "mtllib "))
+    if any(row.lstrip().startswith(("vt ", "vn ", "usemtl ", "mtllib "))
            for row in rows):
-        raise ValueError("This recovery build supports geometry and OBJ groups only")
+        raise ValueError("This recovery build supports geometry, OBJ groups and polypaint only "
+                         "(the SubTool has UVs, normals or materials)")
     vertex_rows = []
     group_for_face = {}
     group = "g"
@@ -130,7 +133,8 @@ def source_records(path, face_lines):
             group = row
         if number in face_line_set:
             group_for_face[number] = group
-    return vertex_rows, group_for_face
+    colours = lqr_mrgb.parse((row for row in rows if row.lstrip().startswith("#MRGB")), len(vertex_rows))
+    return vertex_rows, group_for_face, colours
 
 
 def face_center(vertices, face):
@@ -160,10 +164,12 @@ def inherit_patch_groups(vertices, source, candidate, source_groups, seam):
     return groups
 
 
-def build_obj(vertex_rows, unchanged, patch, groups):
+def build_obj(vertex_rows, unchanged, patch, groups, colours=None):
     used = sorted({i for f in unchanged + patch for i in f})
     index = {original: out for out, original in enumerate(used, 1)}
     lines = ["# LocalQuadRetopo recovery", *(vertex_rows[i] for i in used)]
+    if colours is not None:
+        lines += [row.decode("ascii") for row in lqr_mrgb.block([colours[i] for i in used])]
     current = None
     for group, face in zip(groups, unchanged + patch):
         if group != current:
@@ -226,7 +232,8 @@ def source_intersections(vertices, faces, selected):
     """Number of face pairs in the source that cross and involve the selection."""
     if not selected:
         return 0
-    hits, _, _ = validation.find_intersecting_faces(vertices, faces, validation.bbox_scale(vertices) * 1e-6)
+    hits, _, _ = validation.find_intersecting_faces(vertices, faces, validation.bbox_scale(vertices) * 1e-6,
+                                                    focus=selected)
     return sum(a in selected or b in selected for a, b in hits)
 
 
@@ -322,7 +329,7 @@ def recover(args):
     if change_ratio > args.max_changed_ratio:
         raise ValueError(f"Selection covers {change_ratio:.1%}; exceeds the locality limit")
 
-    vertex_rows, groups = source_records(args.before, lines)
+    vertex_rows, groups, colours = source_records(args.before, lines)
     outside_groups = [groups[lines[i]] for i in preserved]
     original_vertices = vertices
     work_faces = [triangle for face in patch_source for triangle in (
@@ -429,7 +436,19 @@ def recover(args):
                       vertex_rows[i] if i < len(vertex_rows) and point == original_vertices[i]
                       else "v " + " ".join(format(x, ".12g") for x in point)
                       for i, point in enumerate(candidate_vertices)]
-                  obj, used, index = build_obj(output_rows, unchanged, candidate, outside_groups + patch_groups)
+                  output_colours = None
+                  if colours is not None:
+                      # Kept vertices keep their polypaint; new ones take the
+                      # value of the nearest original vertex.
+                      kept = [i < len(vertex_rows) and point == original_vertices[i]
+                              for i, point in enumerate(candidate_vertices)]
+                      fresh = [i for i, k in enumerate(kept) if not k]
+                      output_colours = [colours[i] if k else None for i, k in enumerate(kept)]
+                      for i, value in zip(fresh, lqr_mrgb.nearest(
+                              original_vertices, colours, [candidate_vertices[i] for i in fresh])):
+                          output_colours[i] = value
+                  obj, used, index = build_obj(output_rows, unchanged, candidate, outside_groups + patch_groups,
+                                               output_colours)
                   out_vertices = [candidate_vertices[i] for i in used]
                   out_faces = [tuple(index[i]-1 for i in face) for face in unchanged + candidate]
                   active = set(range(len(unchanged),len(out_faces)))
@@ -439,10 +458,14 @@ def recover(args):
                   check_candidate(out_vertices, rotated, active, options)
               except ValueError as exc:
                 report = None
-                flagged = sorted({int(n) - len(unchanged) for n in re.findall(r"[0-9]+", str(exc))
-                                  if len(unchanged) <= int(n) < len(unchanged) + len(candidate)})
+                message = str(exc)
+                # "Overlapping neighbours" names faces from 1, the other checks from 0.
+                base = 1 if message.startswith("Overlapping neighbours") else 0
+                flagged = sorted({int(n) - base - len(unchanged) for n in re.findall(r"[0-9]+", message)
+                                  if len(unchanged) <= int(n) - base < len(unchanged) + len(candidate)})
                 if (method in ("rebuilt", "regular") and attempt < 3 and flagged
-                        and str(exc).startswith("Candidate rejected") and "non_manifold" not in str(exc)):
+                        and message.startswith(("Candidate rejected", "Overlapping neighbours"))
+                        and "non_manifold" not in message):
                     # A few quads still touch or are flat: ease them and re-check.
                     from patch_remesh import ease_faces
                     candidate_vertices = ease_faces(candidate_vertices, candidate, flagged, fixed,
