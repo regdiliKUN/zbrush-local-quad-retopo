@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import sys
 
+import lqr_mrgb
 import lqr_validate as validation
 from recovery_geometry import (coarsen, directed, edge, midpoint, parity_quads,
                                polygon_triangles, quadrangulate, refine_quads, split_triangles_on_edge,
@@ -112,10 +113,12 @@ def seam_geometry(vertices, faces):
 
 
 def source_records(path, face_lines):
+    """Vertex lines, group line of each face and polypaint values (or None)."""
     rows = path.read_text(encoding="utf-8-sig").splitlines()
-    if any(row.lstrip().startswith(("#MRGB", "vt ", "vn ", "usemtl ", "mtllib "))
+    if any(row.lstrip().startswith(("vt ", "vn ", "usemtl ", "mtllib "))
            for row in rows):
-        raise ValueError("This recovery build supports geometry and OBJ groups only")
+        raise ValueError("This recovery build supports geometry, OBJ groups and polypaint only "
+                         "(the SubTool has UVs, normals or materials)")
     vertex_rows = []
     group_for_face = {}
     group = "g"
@@ -130,7 +133,8 @@ def source_records(path, face_lines):
             group = row
         if number in face_line_set:
             group_for_face[number] = group
-    return vertex_rows, group_for_face
+    colours = lqr_mrgb.parse((row for row in rows if row.lstrip().startswith("#MRGB")), len(vertex_rows))
+    return vertex_rows, group_for_face, colours
 
 
 def face_center(vertices, face):
@@ -160,10 +164,12 @@ def inherit_patch_groups(vertices, source, candidate, source_groups, seam):
     return groups
 
 
-def build_obj(vertex_rows, unchanged, patch, groups):
+def build_obj(vertex_rows, unchanged, patch, groups, colours=None):
     used = sorted({i for f in unchanged + patch for i in f})
     index = {original: out for out, original in enumerate(used, 1)}
     lines = ["# LocalQuadRetopo recovery", *(vertex_rows[i] for i in used)]
+    if colours is not None:
+        lines += [row.decode("ascii") for row in lqr_mrgb.block([colours[i] for i in used])]
     current = None
     for group, face in zip(groups, unchanged + patch):
         if group != current:
@@ -226,7 +232,8 @@ def source_intersections(vertices, faces, selected):
     """Number of face pairs in the source that cross and involve the selection."""
     if not selected:
         return 0
-    hits, _, _ = validation.find_intersecting_faces(vertices, faces, validation.bbox_scale(vertices) * 1e-6)
+    hits, _, _ = validation.find_intersecting_faces(vertices, faces, validation.bbox_scale(vertices) * 1e-6,
+                                                    focus=selected)
     return sum(a in selected or b in selected for a, b in hits)
 
 
@@ -322,7 +329,7 @@ def recover(args):
     if change_ratio > args.max_changed_ratio:
         raise ValueError(f"Selection covers {change_ratio:.1%}; exceeds the locality limit")
 
-    vertex_rows, groups = source_records(args.before, lines)
+    vertex_rows, groups, colours = source_records(args.before, lines)
     outside_groups = [groups[lines[i]] for i in preserved]
     original_vertices = vertices
     work_faces = [triangle for face in patch_source for triangle in (
@@ -374,7 +381,22 @@ def recover(args):
         from patch_remesh import remesh
         return [("rebuilt", *remesh(vertices, work_faces, target))]
 
-    notes = []
+    notes = {}
+
+    def continued():
+        """Carry the regular grid around the mask straight through it."""
+        from grid_continue import build as grid_build
+        from patch_remesh import Surface
+        from core_patch import _triangles
+        import numpy as np
+        step = 0.5 * float(np.median([validation.vlen(validation.vsub(vertices[a], vertices[b]))
+                                      for a, b in seam]))
+        surface = Surface(np.array(vertices, dtype=float),
+                          np.array(_triangles(vertices, work_faces)), step)
+        positions, quads = grid_build(vertices, seam, unchanged, surface, work_faces)
+        notes["grid"] = ("Grid continued from the surrounding mesh: the patch takes its density; "
+                     "the face target is not used.")
+        return [("grid", positions, quads)]
 
     def regular():
         """Keep ZRemesher's regular block and join it to the mask border."""
@@ -382,7 +404,7 @@ def recover(args):
         native_vertices, native_faces, _ = read_obj(args.native)
         positions, quads, note = build(vertices, work_faces, seam, unchanged,
                                        native_vertices, native_faces, original_vertices, faces)
-        notes.append(note)
+        notes["regular"] = note
         return [("regular", positions, quads)]
 
     # A clean quad source keeps its own edge flow through pairing. Triangle
@@ -395,7 +417,9 @@ def recover(args):
         builders = [rebuilt]
 
     if getattr(args, "style", "") == "grid" and getattr(args, "native", None):
-        builders = [regular] + builders
+        # The regular layout never falls back to the honeycomb layout on its
+        # own: the user is told why instead and can choose the honeycomb button.
+        builders = [continued, regular]
 
     options = {"intersect": True, "strict_seam": True,
                "inherited_intersections": source_intersections(original_vertices, faces, selected | stray),
@@ -410,10 +434,10 @@ def recover(args):
             reasons.append(f"{builder.__name__}: {exc}")
             continue
         for method, candidate_vertices, candidate in candidates:
-          for attempt in range(4 if method in ("rebuilt", "regular") else 1):
+          for attempt in range(4 if method in ("rebuilt", "regular", "grid") else 1):
               try:
                   # The sliver relaxation is slow; it is meant for a handful of faces.
-                  if (method not in ("rebuilt", "regular")
+                  if (method not in ("rebuilt", "regular", "grid")
                           and source_extreme < len(extreme_faces(candidate_vertices, candidate)) <= 24):
                       candidate_vertices = relax_slivers(candidate_vertices, candidate, fixed,
                                                          original_vertices, patch_source)
@@ -429,7 +453,19 @@ def recover(args):
                       vertex_rows[i] if i < len(vertex_rows) and point == original_vertices[i]
                       else "v " + " ".join(format(x, ".12g") for x in point)
                       for i, point in enumerate(candidate_vertices)]
-                  obj, used, index = build_obj(output_rows, unchanged, candidate, outside_groups + patch_groups)
+                  output_colours = None
+                  if colours is not None:
+                      # Kept vertices keep their polypaint; new ones take the
+                      # value of the nearest original vertex.
+                      kept = [i < len(vertex_rows) and point == original_vertices[i]
+                              for i, point in enumerate(candidate_vertices)]
+                      fresh = [i for i, k in enumerate(kept) if not k]
+                      output_colours = [colours[i] if k else None for i, k in enumerate(kept)]
+                      for i, value in zip(fresh, lqr_mrgb.nearest(
+                              original_vertices, colours, [candidate_vertices[i] for i in fresh])):
+                          output_colours[i] = value
+                  obj, used, index = build_obj(output_rows, unchanged, candidate, outside_groups + patch_groups,
+                                               output_colours)
                   out_vertices = [candidate_vertices[i] for i in used]
                   out_faces = [tuple(index[i]-1 for i in face) for face in unchanged + candidate]
                   active = set(range(len(unchanged),len(out_faces)))
@@ -439,10 +475,14 @@ def recover(args):
                   check_candidate(out_vertices, rotated, active, options)
               except ValueError as exc:
                 report = None
-                flagged = sorted({int(n) - len(unchanged) for n in re.findall(r"[0-9]+", str(exc))
-                                  if len(unchanged) <= int(n) < len(unchanged) + len(candidate)})
-                if (method in ("rebuilt", "regular") and attempt < 3 and flagged
-                        and str(exc).startswith("Candidate rejected") and "non_manifold" not in str(exc)):
+                message = str(exc)
+                # "Overlapping neighbours" names faces from 1, the other checks from 0.
+                base = 1 if message.startswith("Overlapping neighbours") else 0
+                flagged = sorted({int(n) - base - len(unchanged) for n in re.findall(r"[0-9]+", message)
+                                  if len(unchanged) <= int(n) - base < len(unchanged) + len(candidate)})
+                if (method in ("rebuilt", "regular", "grid") and attempt < 3 and flagged
+                        and message.startswith(("Candidate rejected", "Overlapping neighbours"))
+                        and "non_manifold" not in message):
                     # A few quads still touch or are flat: ease them and re-check.
                     from patch_remesh import ease_faces
                     candidate_vertices = ease_faces(candidate_vertices, candidate, flagged, fixed,
@@ -491,14 +531,14 @@ def recover(args):
         f"Source extremely narrow faces: {source_extreme}",
         f"Recovered extremely narrow faces: {len(extreme_faces(candidate_vertices, candidate))}",
         f"Method: {method}",
-        *(notes if method == "regular" else []),
+        *([notes[method]] if method in notes else []),
         f"Patch folded edges: {health.get('fold_edges', 0)}",
         f"Patch crowded vertices: {health.get('crowded_vertices', 0)}",
         "Strict patch checks: 0 non-quads, 0 degenerate or duplicate faces, 0 intersections",
         "Both patch triangulations checked; original mesh open boundaries preserved.",
         f"Intersection candidate pairs tested: {info['intersection_pairs_tested']}",
     ]
-    if target != len(candidate):
+    if target != len(candidate) and method != "grid":
         diagnostics.append("Target not reached with the current fixed-border quality constraints.")
     if options["inherited_intersections"]:
         diagnostics.append(

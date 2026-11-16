@@ -6,8 +6,8 @@ ZBrush 2022 / 2025 插件：只把**遮罩区域**重新布成四边面，遮罩
 
 ## Download · 下载
 
-- [LocalQuadRetopo_1.4.3_CN.zip](download/LocalQuadRetopo_1.4.3_CN.zip) — 中文版
-- [LocalQuadRetopo_1.4.3_EN.zip](download/LocalQuadRetopo_1.4.3_EN.zip) — English
+- [LocalQuadRetopo_1.4.4_CN.zip](download/LocalQuadRetopo_1.4.4_CN.zip) — 中文版
+- [LocalQuadRetopo_1.4.4_EN.zip](download/LocalQuadRetopo_1.4.4_EN.zip) — English
 
 Open the link, then click the download button (↓) at the top right of the file page. · 打开链接后，点文件页面右上角的下载按钮（↓）。
 
@@ -25,14 +25,15 @@ Unzip the whole package and double-click `INSTALL.bat`. If no suitable Python is
 
 | | Regular · 规则布线 | Honeycomb · 蜂巢布线 |
 |---|---|---|
-| Look · 外观 | ZRemesher grid + transition ring · 规则网格加一圈过渡面 | Even-size quads · 大小均匀的四边面 |
+| Look · 外观 | Continues a regular surrounding grid; otherwise ZRemesher grid + transition ring · 外面是规则网格时直接延续网格线，否则规则网格加一圈过渡面 | Even-size quads · 大小均匀的四边面 |
 | Speed · 速度 | ~5–25 s | ~2–15 s |
-| Uses ZRemesher · 调用 ZRemesher | Yes · 是 | No · 否 |
+| Uses ZRemesher · 调用 ZRemesher | Only when the surroundings are not a regular grid · 仅在外面不是规则网格时 | No · 否 |
 
 - Target face count `0` = automatic, follows the density around the mask · 目标面数为 0 时按遮罩周围密度自动决定
 - **Recommend Faces** button · 「推荐面数」按钮
 - **Back to Original** keeps the source SubTool · 「回到原模型」随时切回
-- A failed run rolls back automatically · 失败时自动回滚，不会破坏模型
+- A failed run rolls back automatically and says why · 失败时自动回滚并说明原因，不会破坏模型
+- Polypaint and the mask are kept · 保留顶点色（Polypaint）和遮罩
 
 Works well with Sculptris Pro: sculpt freely, mask the triangulated area, press one button to get quads back.
 
@@ -45,9 +46,9 @@ Works well with Sculptris Pro: sculpt freely, mask the triangulated area, press 
 
 ## Limitations · 限制
 
-- Models with UVs, materials, explicit normals or Polypaint are refused · 带 UV、材质、显式法线或顶点色的模型暂不支持
+- Models with UVs, materials or explicit normals are refused · 带 UV、材质或显式法线的模型暂不支持
 - Keep each mask moderate in size; very large areas take longer · 一次遮罩不宜过大
-- The regular layout calls ZRemesher, which can crash ZBrush on a few extreme meshes — save first · 规则布线前建议先保存
+- When the surroundings are not a regular grid, the regular layout calls ZRemesher, which can crash ZBrush on a few extreme meshes — save first · 规则布线前建议先保存
 
 ## Repository layout · 目录
 

@@ -1,5 +1,5 @@
 ﻿================================================================
-  Local Quad Retopo (LocalQuadRetopo) - User Guide    Version 1.4.3
+  Local Quad Retopo (LocalQuadRetopo) - User Guide    Version 1.4.4
 ================================================================
 
 For installation, first read "README.txt" in the same folder. This
@@ -39,9 +39,13 @@ Location: ZPlugin > Local Quad Retopo
       number first and then decide to go higher or lower.
 
   Retopo Mask - Regular
-      Keeps the regular quads that ZRemesher creates in the middle
-      and adds a ring of transition faces between them and the mask
-      border. Clean edge flow.
+      When the faces around the mask form a regular grid (for
+      example a subdivided mesh), the grid lines are carried straight
+      through the mask: the new faces have the same density and the
+      border shows no transition. ZRemesher is not used then, and the
+      face target has no effect.
+      Otherwise it keeps the regular quads that ZRemesher creates in
+      the middle and adds a ring of transition faces to the border.
 
   Retopo Mask - Honeycomb
       Rebuilds the whole area as quads of even size, with a
@@ -84,9 +88,10 @@ raise or lower it, then run.
 ----------------------------------------------------------------
 
                  Regular                       Honeycomb
-  Look       a tidy grid in the middle,    even face size,
-             a ring of transition faces    honeycomb-like flow
-             at the border
+  Look       continues a regular grid      even face size,
+             around the mask; otherwise a  honeycomb-like flow
+             tidy grid with a ring of
+             transition faces
   Speed      slower (about 5-25 s)         faster (about 2-15 s)
   Reliability depends on ZRemesher; may    succeeds almost always
              fail on very narrow or
@@ -96,11 +101,16 @@ raise or lower it, then run.
              edge flow matters             or when Regular fails
 
 When the regular layout cannot produce a valid result, the plug-in
-switches to the honeycomb layout by itself (areas that were already
-clean quads are "paired" instead, which keeps their edge flow), so
-the run does not fail because of it. When the masked area passes
-through itself a lot, the plug-in goes straight to the honeycomb
-layout and says so at the top.
+does not switch to the honeycomb layout by itself: the model stays
+unchanged and the top bar says why. Adjust the mask or face target
+and try again, or use the honeycomb layout. When the area around the
+mask is not a regular grid and the masked area passes through itself
+a lot, the plug-in goes straight to the honeycomb layout and says so
+at the top.
+
+When the face target is more than 3x away from the recommendation
+for the mask, a note at the top says the transition may look uneven.
+Click Recommend Faces or set the slider to 0.
 
 
 5. Recommended workflow with Sculptris Pro
@@ -158,9 +168,10 @@ Preferences > Hotkeys > Store so it is kept after a restart.
   - Do not mask too large an area at once. Ten thousand faces take
     over ten seconds; a run that takes more than about a minute
     counts as failed. Split the mask into several parts then.
-  - These models are refused: models with UVs, materials, explicit
-    normals or vertex colour (Polypaint). Work on a copy without
-    them if needed.
+  - Vertex colour (Polypaint) and the mask are kept: new faces take
+    the colour nearby.
+  - These models are refused: models with UVs, materials or explicit
+    normals. Work on a copy without them if needed.
 
 
 7. When a run fails
@@ -179,6 +190,9 @@ damaged. Common causes and fixes:
     mask, unchanged, and rebuilds the rest. Usually nothing needs to
     be done. If a run still fails because of it, adjust the mask so
     its border is a simple closed loop.
-  - The regular layout fails: use the honeycomb layout.
+  - "Regular layout not possible": the area around the mask is not
+    a regular grid and ZRemesher's result does not join the border.
+    Draw the mask edge onto the regular grid around it, adjust the
+    face target, or use the honeycomb layout.
   - Repeated failures: send the report file (the file in C:\LQR
     ending in _report.txt) to the plug-in author.

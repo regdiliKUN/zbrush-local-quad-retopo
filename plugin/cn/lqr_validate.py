@@ -329,7 +329,7 @@ def _build_grid(tris, cell):
     return grid, big
 
 
-def find_intersecting_faces(verts, faces, tol, cap_pairs=8000000):
+def find_intersecting_faces(verts, faces, tol, cap_pairs=8000000, focus=None):
     """基于均匀网格的宽相 + 三角形窄相，返回相交面编号对。
 
     v1.0.1: 网格边长由「中位边长」决定，而不是固定的 bbox/40。
@@ -354,10 +354,33 @@ def find_intersecting_faces(verts, faces, tol, cap_pairs=8000000):
     area_eps = (tol * tol) * 0.5
     det_eps = max(1e-14, (tol ** 3) * 1e-6)
 
+    # focus: only pairs involving these faces matter. Faces whose bounding
+    # box lies wholly outside the focus area (plus a margin) cannot touch
+    # them and are left out, so a local edit on a multi-million-face mesh
+    # does not test the whole mesh.
+    region = None
+    if focus is not None:
+        pts = [verts[i] for fid in focus if 0 <= fid < len(faces)
+               for i in faces[fid] if 0 <= i < len(verts)]
+        if not pts:
+            return [], 0, False
+        margin = cell * 2.0 + tol
+        region = ([min(p[k] for p in pts) - margin for k in range(3)],
+                  [max(p[k] for p in pts) + margin for k in range(3)])
     tris = []           # (tri points tuple, face id, vertex-index set)
     for fid, f in enumerate(faces):
         if len(f) < 3 or any(i < 0 or i >= len(verts) for i in f):
             continue
+        if region is not None:
+            lo, hi = region
+            outside = False
+            for k in range(3):
+                values = [verts[i][k] for i in f]
+                if max(values) < lo[k] or min(values) > hi[k]:
+                    outside = True
+                    break
+            if outside:
+                continue
         for k in range(1, len(f) - 1):
             tri = (verts[f[0]], verts[f[k]], verts[f[k + 1]])
             if tri_area(*tri) <= area_eps:
@@ -830,7 +853,7 @@ def analyse(verts, faces, face_lines, opts, active=None):
 
     # 5) 面片真实穿插 -------------------------------------------------------
     if opts["intersect"]:
-        hits, tested, truncated = find_intersecting_faces(verts, faces, tol)
+        hits, tested, truncated = find_intersecting_faces(verts, faces, tol, focus=active)
         report["info"]["intersection_pairs_tested"] = tested
         # 只有当穿插的双方至少有一方是本次重算出来的面时才算账：
         # 源模型自带的穿插不该由这次局部重拓扑背锅，但仍如实报出来。
