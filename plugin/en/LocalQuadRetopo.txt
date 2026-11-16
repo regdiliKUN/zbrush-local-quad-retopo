@@ -1,5 +1,7 @@
 // LocalQuadRetopo for ZBrush 2022 and 2025 (the installer sets IConfig to the target version)
-// Version 1.4.3. Both layouts check the mask first; a mask covering the whole SubTool is refused. Two run buttons (regular / honeycomb) instead of a switch. ZRemesher runs only for the regular layout and never on a self-crossing patch. Two layouts: regular (ZRemesher block + transition band) or honeycomb. Recommend button restores the mask; target 0 = automatic. Stage trace in C:/LQR/lqr_stage.txt; target slider 0-5000 in steps of 10, default 500.
+// 1.4.4: the regular layout continues a regular surrounding grid first and never
+// falls back to honeycomb on its own.
+// Version 1.4.4. Both layouts check the mask first; a mask covering the whole SubTool is refused. Two run buttons (regular / honeycomb) instead of a switch. ZRemesher runs only for the regular layout and never on a self-crossing patch. Two layouts: regular (ZRemesher block + transition band) or honeycomb. Recommend button restores the mask; target 0 = automatic. Stage trace in C:/LQR/lqr_stage.txt; target slider 0-5000 in steps of 10, default 500.
 // English edition. All UI strings are plain ASCII.
 
 [IConfig, 2025]
@@ -88,6 +90,13 @@
 [VarDef, LQRCN101, ""]
 [VarDef, LQRCN104, "ZPlugin:Local Quad Retopo:Rollback"]
 [VarDef, LQRCN105, ""]
+[VarDef, LQRCONT, 0]
+[VarDef, LQRUSERT, 0]
+[VarDef, LQRCN130, ""]
+[VarDef, LQRCN131, ""]
+[VarDef, LQRCN132, ""]
+[VarDef, LQRCN133, ""]
+[VarDef, LQRCN134, ""]
 
 // --- runtime construction (executed at plugin load, verified on 2025.0.1) ---
 [VarSet, LQRCN2, "Select an editable polygon mesh first."]
@@ -111,10 +120,16 @@
 [VarSet, LQRCN111, "After drawing the mask, click here: works out a face target from the density around the mask and puts it in the slider."]
 [VarSet, LQRCN112, "Recommended face target: "]
 [VarSet, LQRCN100, "ZPlugin:Local Quad Retopo:Retopo Mask - Regular"]
-[VarSet, LQRCN101, "Draw the mask with Ctrl, then click here: keeps the regular quads of ZRemesher with a ring of transition faces at the border. Uses the honeycomb layout when that fails."]
+[VarSet, LQRCN101, "Draw the mask with Ctrl, then click: continues the surrounding grid when it is regular, otherwise keeps ZRemesher's quads with a transition ring. If neither works, it says why and changes nothing."]
 [VarSet, LQRCN104, "ZPlugin:Local Quad Retopo:Back to Original"]
 [VarSet, LQRCN105, "Switches back to the SubTool from before the last run on this Tool."]
 
+
+[VarSet, LQRCN130, "Regular layout not possible, nothing was changed: the area around the mask is not a regular grid and ZRemesher's result does not join the border. Adjust the mask or face target, or use the honeycomb layout."]
+[VarSet, LQRCN131, "Done: the surrounding grid was continued through the mask at the same density (the face target is not used here)."]
+[VarSet, LQRCN132, "Done. Face target "]
+[VarSet, LQRCN133, " is far from the recommended "]
+[VarSet, LQRCN134, " for this mask; the transition may look uneven. Click Recommend Faces or set the slider to 0."]
 
 // -----------------------------------------------------------------------------
 // Installed worker and geometry exports use the same short directory.
@@ -436,9 +451,13 @@
   [RoutineCall, LQRValidate]
   [VarSet, LQRRECN, 0]
   [VarSet, LQRRISK, 0]
+  [VarSet, LQRCONT, 0]
   [If, ([StrFind, "LQR_STATUS:RECOMMEND", #LQRLINE] = 0),
     // "R1" after the count: the masked surface passes through itself.
     [If, (([StrToAsc, #LQRLINE, 28] - 48) = 1), [VarSet, LQRRISK, 1]]
+    // "G1" after it: the area around the mask is a regular grid that the
+    // regular layout continues through the mask, without ZRemesher.
+    [If, (([StrToAsc, #LQRLINE, 31] - 48) = 1), [VarSet, LQRCONT, 1]]
     // The count is five digits starting at character 21.
     [VarSet, LQRI, 21]
     [Loop, 5,
@@ -487,6 +506,7 @@
   // Zero uses the default native target and automatic recovery density.
   // A positive value is entered as faces.
   [VarSet, LQRN, [IGet, #LQRCN25]]
+  [VarSet, LQRUSERT, LQRN]
   [VarSet, LQRGRID, LQRWANT]
   [VarSet, LQRAUTO, 0]
   // Both layouts first run the Recommend check. It stops the run when no
@@ -506,7 +526,9 @@
     [VarSet, LQRVSTAT, 0]
     [VarSet, LQRPHASE, 1]
     [VarSet, LQRN, [IGet, #LQRCN25]]
-    [If, (LQRRISK = 1), [VarSet, LQRGRID, 0]]
+    // A self-crossing mask keeps ZRemesher out; continuing a regular grid
+    // does not need ZRemesher, so the regular layout stays.
+    [If, ((LQRRISK = 1) * (LQRCONT = 0)), [VarSet, LQRGRID, 0]]
   ]
   [VarSet, LQRMODE, 2]
   [VarSet, LQRTARGET, 0.699]
@@ -623,7 +645,7 @@
 
   // The honeycomb layout is built from the source surface alone, so
   // ZRemesher is not run for it at all.
-  [If, (LQRGRID = 1),
+  [If, ((LQRGRID = 1) * (LQRCONT = 0)),
   // ---- (I) Configure ZRemesher. FreezeBorder is MANDATORY: it preserves the
   //         border vertices and welds the quad patch back. ------------------
   [If, [IExists, "Tool:Geometry:FreezeBorder"],
@@ -689,7 +711,19 @@
   [IShowActions, -1]
   [RoutineCall, LQRShowStatus]
   // Say why the regular layout was not used, when the run itself succeeded.
-  [If, ((LQRWANT = 1) * (LQRRISK = 1) * (LQRVSTAT = 1)), [NoteBar, #LQRCN122, 0]]
+  [If, ((LQRWANT = 1) * (LQRRISK = 1) * (LQRCONT = 0) * (LQRVSTAT = 1)), [NoteBar, #LQRCN122, 0]]
+  // The regular layout could not be built: say why; the model is unchanged.
+  [If, ((LQRVSTAT = 2) * ([StrFind, "LQR_STATUS:FAIL RG", #LQRLINE] = 0)), [NoteBar, #LQRCN130, 0]]
+  [If, ((LQRVSTAT = 1) * ([StrFind, "LQR_STATUS:PASS G", #LQRLINE] = 0)),
+    [NoteBar, #LQRCN131, 0]
+  ,
+    // A face target far from the recommendation for this mask.
+    [If, ((LQRVSTAT = 1) * (LQRUSERT > 0.5) * (LQRRECN > 0)),
+      [If, (((LQRUSERT * 3) < LQRRECN) + (LQRUSERT > (LQRRECN * 3))),
+        [NoteBar, [StrMerge, #LQRCN132, LQRUSERT, #LQRCN133, LQRRECN, #LQRCN134], 0]
+      ]
+    ]
+  ]
   [VarSet, LQRSTAGE, 14] [RoutineCall, LQRMark]
 ]
 

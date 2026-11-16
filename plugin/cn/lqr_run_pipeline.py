@@ -48,9 +48,12 @@ def publish(path, text):
             pass
 
 
-def write_failure(native_report, reason):
+# Codes after the status word on the first report line, read by the ZScript:
+#   G   the regular layout continued the surrounding grid (PASS)
+#   RG  the regular layout could not be built; nothing was changed (FAIL)
+def write_failure(native_report, reason, code=""):
     details = native_report.splitlines()[1:]
-    publish(REPORT, "LQR_STATUS:FAIL\nLocalQuadRetopo 1.4.4\n"
+    publish(REPORT, "LQR_STATUS:FAIL" + (" " + code if code else "") + "\nLocalQuadRetopo 1.4.4\n"
             + "[FAIL] " + reason + "\n" + "\n".join(details) + "\n")
 
 
@@ -192,7 +195,19 @@ def recommend():
     # masks with up to 44 pairs in 2501 faces went through ZRemesher safely.
     # The line is drawn between the two: more than 2% of the masked faces.
     risk = 1 if source_intersections(vertices, faces, selected) * 50 > len(selected) else 0
-    publish(REPORT, f"LQR_STATUS:RECOMMEND {count:05d} R{risk}\n"
+    # G1: the surroundings are a regular grid, so the regular layout can carry
+    # it through the mask and ZRemesher is not needed.
+    grid = 0
+    try:
+        from grid_continue import NotAGrid, cells, lattice
+        from lqr_recover import boundary
+        seam = boundary([faces[i] for i in selected])
+        outside_faces = [f for i, f in enumerate(faces) if i not in selected]
+        cells(seam, lattice(outside_faces, seam))
+        grid = 1
+    except Exception:
+        grid = 0
+    publish(REPORT, f"LQR_STATUS:RECOMMEND {count:05d} R{risk} G{grid}\n"
             f"Masked faces: {len(selected)}; masked area share: "
             f"{inside_area / (inside_area + outside_area):.3f}; unmasked faces: {len(outside)}\n")
 
@@ -238,7 +253,8 @@ def run(args):
             # Keep ZRemesher's own output for later inspection.
             os.replace(AFTER, artifact("native.obj"))
             os.replace(ROUNDTRIP, AFTER)
-            publish(REPORT, "LQR_STATUS:PASS\nLocalQuadRetopo 1.4.4 - recovered and checked after ZBrush re-export\n"
+            code = " G" if re.search(r"^Method: grid$", recovered_report, re.M) else ""
+            publish(REPORT, "LQR_STATUS:PASS" + code + "\nLocalQuadRetopo 1.4.4 - recovered and checked after ZBrush re-export\n"
                     + (note + "\n" if note else "")
                     + "\n".join(recovered_report.splitlines()[1:]) + "\n")
         except (OSError, ValueError, ImportError, IndexError) as exc:
@@ -331,7 +347,9 @@ def run(args):
     except ImportError:
         write_failure(native, "Recovery requires NumPy and SciPy in the configured Python interpreter")
     except (ValueError, OSError, IndexError) as exc:
-        write_failure(native, f"Automatic recovery rejected this candidate: {exc}")
+        # The regular layout stops here instead of switching to honeycomb.
+        write_failure(native, f"Automatic recovery rejected this candidate: {exc}",
+                      "RG" if args.mode == 1 else "")
 
 
 # Above this many faces the work is cut down to the masked area and a band

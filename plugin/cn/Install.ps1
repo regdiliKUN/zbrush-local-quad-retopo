@@ -3,13 +3,13 @@
     [switch]$InstallPython
 )
 $ErrorActionPreference = 'Stop'
-$version = '1.4.3'
+$version = '1.4.4'
 $workFolder = 'C:\LQR'
 $privatePython = Join-Path $workFolder 'python'
 $pluginName = 'LocalQuadRetopo.txt'
 $compiled2022 = 'LocalQuadRetopo_2022.zsc'
 $compiled2025 = 'LocalQuadRetopo_2025.zsc'
-$files = @('lqr_validate.py', 'lqr_run_pipeline.py', 'lqr_recover.py', 'lqr_local.py', 'lqr_mrgb.py',
+$files = @('lqr_validate.py', 'lqr_run_pipeline.py', 'lqr_recover.py', 'lqr_local.py', 'lqr_mrgb.py', 'grid_continue.py',
            'recovery_geometry.py', 'patch_remesh.py', 'core_patch.py', 'LqrLaunch.exe')
 # Python 3.12.10 is the last 3.12 release with Windows binaries.
 $pythonUrls = @(
@@ -20,7 +20,7 @@ $getPipUrls = @('https://bootstrap.pypa.io/get-pip.py')
 # Empty entry = the default package index; the others are mirrors tried in turn.
 $pipIndexes = @('', 'https://pypi.tuna.tsinghua.edu.cn/simple', 'https://mirrors.aliyun.com/pypi/simple/')
 $pythonCheck = '-c "import numpy, scipy, sys; from scipy.optimize import milp; print(sys.executable)"'
-$selfTest = '-c "import sys, lqr_run_pipeline, lqr_recover, lqr_local, lqr_mrgb, core_patch, patch_remesh, recovery_geometry, lqr_validate; sys.exit(lqr_validate.main([''--self-test'']))"'
+$selfTest = '-c "import sys, lqr_run_pipeline, lqr_recover, lqr_local, lqr_mrgb, grid_continue, core_patch, patch_remesh, recovery_geometry, lqr_validate; sys.exit(lqr_validate.main([''--self-test'']))"'
 
 function Say([string]$text, [string]$color = 'Gray') {
     Write-Host $text -ForegroundColor $color

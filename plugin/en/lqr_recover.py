@@ -381,7 +381,22 @@ def recover(args):
         from patch_remesh import remesh
         return [("rebuilt", *remesh(vertices, work_faces, target))]
 
-    notes = []
+    notes = {}
+
+    def continued():
+        """Carry the regular grid around the mask straight through it."""
+        from grid_continue import build as grid_build
+        from patch_remesh import Surface
+        from core_patch import _triangles
+        import numpy as np
+        step = 0.5 * float(np.median([validation.vlen(validation.vsub(vertices[a], vertices[b]))
+                                      for a, b in seam]))
+        surface = Surface(np.array(vertices, dtype=float),
+                          np.array(_triangles(vertices, work_faces)), step)
+        positions, quads = grid_build(vertices, seam, unchanged, surface, work_faces)
+        notes["grid"] = ("Grid continued from the surrounding mesh: the patch takes its density; "
+                     "the face target is not used.")
+        return [("grid", positions, quads)]
 
     def regular():
         """Keep ZRemesher's regular block and join it to the mask border."""
@@ -389,7 +404,7 @@ def recover(args):
         native_vertices, native_faces, _ = read_obj(args.native)
         positions, quads, note = build(vertices, work_faces, seam, unchanged,
                                        native_vertices, native_faces, original_vertices, faces)
-        notes.append(note)
+        notes["regular"] = note
         return [("regular", positions, quads)]
 
     # A clean quad source keeps its own edge flow through pairing. Triangle
@@ -402,7 +417,9 @@ def recover(args):
         builders = [rebuilt]
 
     if getattr(args, "style", "") == "grid" and getattr(args, "native", None):
-        builders = [regular] + builders
+        # The regular layout never falls back to the honeycomb layout on its
+        # own: the user is told why instead and can choose the honeycomb button.
+        builders = [continued, regular]
 
     options = {"intersect": True, "strict_seam": True,
                "inherited_intersections": source_intersections(original_vertices, faces, selected | stray),
@@ -417,10 +434,10 @@ def recover(args):
             reasons.append(f"{builder.__name__}: {exc}")
             continue
         for method, candidate_vertices, candidate in candidates:
-          for attempt in range(4 if method in ("rebuilt", "regular") else 1):
+          for attempt in range(4 if method in ("rebuilt", "regular", "grid") else 1):
               try:
                   # The sliver relaxation is slow; it is meant for a handful of faces.
-                  if (method not in ("rebuilt", "regular")
+                  if (method not in ("rebuilt", "regular", "grid")
                           and source_extreme < len(extreme_faces(candidate_vertices, candidate)) <= 24):
                       candidate_vertices = relax_slivers(candidate_vertices, candidate, fixed,
                                                          original_vertices, patch_source)
@@ -463,7 +480,7 @@ def recover(args):
                 base = 1 if message.startswith("Overlapping neighbours") else 0
                 flagged = sorted({int(n) - base - len(unchanged) for n in re.findall(r"[0-9]+", message)
                                   if len(unchanged) <= int(n) - base < len(unchanged) + len(candidate)})
-                if (method in ("rebuilt", "regular") and attempt < 3 and flagged
+                if (method in ("rebuilt", "regular", "grid") and attempt < 3 and flagged
                         and message.startswith(("Candidate rejected", "Overlapping neighbours"))
                         and "non_manifold" not in message):
                     # A few quads still touch or are flat: ease them and re-check.
@@ -514,14 +531,14 @@ def recover(args):
         f"Source extremely narrow faces: {source_extreme}",
         f"Recovered extremely narrow faces: {len(extreme_faces(candidate_vertices, candidate))}",
         f"Method: {method}",
-        *(notes if method == "regular" else []),
+        *([notes[method]] if method in notes else []),
         f"Patch folded edges: {health.get('fold_edges', 0)}",
         f"Patch crowded vertices: {health.get('crowded_vertices', 0)}",
         "Strict patch checks: 0 non-quads, 0 degenerate or duplicate faces, 0 intersections",
         "Both patch triangulations checked; original mesh open boundaries preserved.",
         f"Intersection candidate pairs tested: {info['intersection_pairs_tested']}",
     ]
-    if target != len(candidate):
+    if target != len(candidate) and method != "grid":
         diagnostics.append("Target not reached with the current fixed-border quality constraints.")
     if options["inherited_intersections"]:
         diagnostics.append(
