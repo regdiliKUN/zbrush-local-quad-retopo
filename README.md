@@ -4,12 +4,14 @@ ZBrush 2022 / 2025 plug-in that rebuilds **only the masked area** of a mesh as q
 
 ZBrush 2022 / 2025 插件：只把**遮罩区域**重新布成四边面，遮罩外的面保持原样，新旧两部分在遮罩边界上逐点对齐，不留缝、不叠面。
 
+> 觉得好用的话，点个 ⭐ Star 支持一下 · If you find it useful, please give it a ⭐ Star!
+
 ## Download · 下载
 
-- [LocalQuadRetopo_1.4.4_CN.zip](download/LocalQuadRetopo_1.4.4_CN.zip) — 中文版
-- [LocalQuadRetopo_1.4.4_EN.zip](download/LocalQuadRetopo_1.4.4_EN.zip) — English
+- [LocalQuadRetopo_1.4.4_CN.zip](https://github.com/regdiliKUN/zbrush-local-quad-retopo/releases/download/v1.4.4/LocalQuadRetopo_1.4.4_CN.zip) — 中文版
+- [LocalQuadRetopo_1.4.4_EN.zip](https://github.com/regdiliKUN/zbrush-local-quad-retopo/releases/download/v1.4.4/LocalQuadRetopo_1.4.4_EN.zip) — English
 
-Open the link, then click the download button (↓) at the top right of the file page. · 打开链接后，点文件页面右上角的下载按钮（↓）。
+Click a link to download directly, or see all versions on the [Releases page](https://github.com/regdiliKUN/zbrush-local-quad-retopo/releases/latest). · 点链接直接下载，历史版本见 [Releases 页面](https://github.com/regdiliKUN/zbrush-local-quad-retopo/releases/latest)。
 
 Unzip the whole package and double-click `INSTALL.bat`. If no suitable Python is found, the installer downloads a private one (about 60 MB, first install only).
 
